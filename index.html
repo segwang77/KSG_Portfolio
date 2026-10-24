@@ -1,0 +1,1342 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="3D 클릭 휠 플레이어로 프로젝트를 탐색하는 KSG 개발 포트폴리오">
+<meta property="og:title" content="김세광 개발 포트폴리오">
+<meta property="og:description" content="3D 클릭 휠 플레이어로 프로젝트를 탐색하는 KSG 개발 포트폴리오">
+<style>
+/* 기본 리셋 (휴대폰 노치·홈 바 영역 여백 포함) */
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+</style>
+<title>KSG Portfolio</title>
+<!-- 파비콘: ksg_logo.png 파일을 index.html과 같은 폴더에 두세요 -->
+<link rel="icon" type="image/png" href="ksg_logo.png">
+<link rel="apple-touch-icon" href="ksg_logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: 플레이어 뷰 = 화면 전체에 3D 기기 하나. 리스트 뷰 = 탐색기(사이드바 | 파일 목록 | 미리보기) */
+:root{
+  --bg:#EDEFF2; --surface:#FFFFFF; --fg:#16191E; --muted:#5C6470; --line:#DADFE5; --line-soft:#EEF0F3;
+  --hover:#F3F5F8; --sel:#E2EBFB; --accent:#2C67D8; --accent-ink:#FFFFFF; --folder:#E2AC38;
+  --stage:#D8DCE2; --stage-hi:#F7F8FA;
+  --dev-front:#F4F4F2; --dev-wheel:#E1E3E6; --dev-label:#8F96A0;
+  /* 기기 화면(LCD)은 실물처럼 테마와 무관하게 한 가지 모습 */
+  --lcd-bg:#FFFFFF; --lcd-fg:#15181D; --lcd-muted:#59616C; --lcd-line:#E2E5E9; --lcd-on:#FFFFFF;
+  --lcd-sel1:#64A8F5; --lcd-sel2:#2361D1; --lcd-head1:#FBFBFC; --lcd-head2:#D3D8DE; --lcd-edge:#8D95A0; --lcd-lang:#E5EEFC;
+  --display:"Familjen Grotesk","IBM Plex Sans KR",system-ui,sans-serif;
+  --body:"IBM Plex Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D0F12; --surface:#15181D; --fg:#E7EAEE; --muted:#8E96A0; --line:#272C33; --line-soft:#1D2127;
+    --hover:#1B1F25; --sel:#1C2A45; --accent:#7AA2FF; --accent-ink:#0D0F12; --folder:#D3A13A;
+    --stage:#0E1014; --stage-hi:#1E232B;
+    --dev-front:#1C1D20; --dev-wheel:#2C2E33; --dev-label:#8A8F98; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D0F12; --surface:#15181D; --fg:#E7EAEE; --muted:#8E96A0; --line:#272C33; --line-soft:#1D2127;
+  --hover:#1B1F25; --sel:#1C2A45; --accent:#7AA2FF; --accent-ink:#0D0F12; --folder:#D3A13A;
+  --stage:#0E1014; --stage-hi:#1E232B;
+  --dev-front:#1C1D20; --dev-wheel:#2C2E33; --dev-label:#8A8F98; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{height:100%}
+body{min-height:100%;display:flex;flex-direction:column;padding-inline:16px;padding-block:16px 88px;-webkit-tap-highlight-color:transparent;
+  color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.6;
+  background:radial-gradient(120% 90% at 50% 42%,var(--stage-hi),var(--stage) 72%) var(--stage)}
+body.v-list{background:var(--bg)}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.view{transition:opacity .26s ease,transform .34s cubic-bezier(.2,.7,.2,1)}
+.view.leave{opacity:0;transform:scale(.96)}
+.view.enter{opacity:0;transform:translateY(10px)}
+
+/* ---------- player ---------- */
+.site-head{display:flex;justify-content:center;padding-block:2px 6px}
+.site-head h1{margin:0;font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:-.02em;line-height:1.2;color:var(--fg)}
+#player{flex:1;position:relative;display:flex;flex-direction:column;gap:8px;min-height:520px}
+#stage{flex:1;position:relative;outline:none;min-height:420px}
+.howto-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
+.howto-toggle{display:inline-flex;align-items:center;gap:4px;font:inherit;font-size:12px;color:var(--muted);background:transparent;border:0;padding:3px 10px;border-radius:999px;cursor:pointer}
+.howto-toggle:hover{color:var(--fg);background:var(--hover)}
+.howto-toggle svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+.howto-toggle[aria-expanded="false"] svg{transform:rotate(180deg)}
+.howto{list-style:none;margin:0 auto;padding:0;max-width:720px;display:flex;flex-wrap:wrap;justify-content:center;gap:4px 16px;
+  font-size:12.5px;line-height:1.6;color:var(--muted)}
+.howto li{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.howto li span{color:var(--fg);font-weight:600}
+.howto kbd{font-family:var(--mono);font-size:11px;padding:0 5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;background:var(--surface);color:var(--fg)}
+@media (hover:none){ .howto .kb{display:none} }
+@media (max-width:600px){
+  .howto{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;max-width:360px;width:100%;font-size:12px}
+  .howto li{white-space:normal}
+  .howto .wide{grid-column:1/-1;justify-content:center}
+}
+@media (max-height:640px){ #player{min-height:440px} #stage{min-height:340px} }
+#stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#stage .fallback{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+/* ---------- bottom dock ---------- */
+.dock{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:10;
+  display:flex;gap:2px;padding:5px;border-radius:999px;border:1px solid var(--line);
+  background:color-mix(in srgb,var(--surface) 80%,transparent);backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);
+  box-shadow:0 10px 30px -12px rgba(0,0,0,.28)}
+.dock-ind{position:absolute;top:5px;bottom:5px;left:0;width:0;border-radius:999px;background:var(--fg);
+  transition:transform .38s cubic-bezier(.2,.7,.2,1),width .38s cubic-bezier(.2,.7,.2,1)}
+.dock button{all:unset;box-sizing:border-box;position:relative;z-index:1;display:flex;align-items:center;gap:7px;height:40px;padding:0 16px;
+  border-radius:999px;font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;white-space:nowrap;transition:color .25s}
+.dock button:hover{color:var(--fg)}
+.dock button[aria-current="true"]{color:var(--bg)}
+.dock button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dock button[hidden]{display:none}
+.dock svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dock button.icon-only{padding:0 12px}
+.dock-sep{width:1px;margin:9px 3px;background:var(--line)}
+
+/* ---------- explorer ---------- */
+#list{width:100%;max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:14px;padding-block:4px 24px}
+.toolbar{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 6px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.icon-btn{width:34px;height:34px;flex:none;border-radius:8px;border:0;background:transparent;color:var(--fg);display:grid;place-items:center;cursor:pointer}
+.icon-btn:hover:not(:disabled){background:var(--hover)}
+.icon-btn:disabled{opacity:.35;cursor:default}
+.icon-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.crumbs{flex:1;min-width:0;display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;font-size:14px}
+.crumbs button{all:unset;padding:5px 8px;border-radius:6px;cursor:pointer;white-space:nowrap;color:var(--muted)}
+.crumbs button:hover{background:var(--hover);color:var(--fg)}
+.crumbs button[aria-current]{color:var(--fg);font-weight:600}
+.crumbs button:focus-visible{outline:2px solid var(--accent)}
+.crumbs .sep{color:var(--muted);opacity:.6}
+
+.ex{display:grid;grid-template-columns:200px minmax(0,1fr) 330px;gap:14px;align-items:start}
+.ex.no-preview{grid-template-columns:200px minmax(0,1fr)}
+.side{display:flex;flex-direction:column;gap:2px;position:sticky;top:16px}
+.side-h{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 10px 8px}
+.side-i{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px}
+.side-i:hover{background:var(--hover)}
+.side-i[aria-current="true"]{background:var(--sel);font-weight:600}
+.side-i:focus-visible{outline:2px solid var(--accent)}
+.side-i .count{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:400}
+
+.ico{width:20px;height:20px;flex:none}
+.ico.folder{fill:var(--folder)}
+.ico.line{fill:none;stroke:var(--muted);stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
+
+.main{min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.thead,.row{display:grid;gap:16px;align-items:center;padding-inline:16px}
+.cols-proj .thead,.cols-proj .row{grid-template-columns:minmax(0,2.2fr) minmax(0,1.7fr) 3.6em 3.6em}
+.cols-folder .thead,.cols-folder .row{grid-template-columns:minmax(0,1fr) 5em 4em}
+.cols-contact .thead,.cols-contact .row{grid-template-columns:minmax(0,.8fr) minmax(0,1.6fr) 5em}
+.thead{height:38px;font-size:12px;font-weight:500;color:var(--muted);border-bottom:1px solid var(--line)}
+.row{all:unset;box-sizing:border-box;display:grid;gap:16px;align-items:center;width:100%;min-height:54px;padding:8px 16px;border-bottom:1px solid var(--line-soft);cursor:default}
+button.row{cursor:pointer}
+button.row:hover{background:var(--hover)}
+.row[aria-selected="true"]{background:var(--sel)}
+button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.name{display:flex;align-items:center;gap:12px;min-width:0}
+.nm{display:flex;flex-direction:column;min-width:0;line-height:1.35}
+.nm strong{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm .sub{display:none;font-size:13.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cell{font-size:14.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.c-stack{color:var(--fg)}
+.num{font-family:var(--mono);font-size:13.5px;font-variant-numeric:tabular-nums}
+.r{text-align:right;justify-self:end}
+.thumb{width:32px;height:32px;flex:none;border-radius:6px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:700;font-size:13px;
+  background:linear-gradient(135deg,hsl(var(--h) 72% 58%),hsl(calc(var(--h) + 38) 70% 28%))}
+.eq{display:inline-flex;gap:2px;align-items:flex-end;height:12px;margin-left:auto;flex:none}
+.eq i{width:3px;background:var(--accent);height:40%;animation:eq .9s ease-in-out infinite}
+.eq i:nth-child(2){animation-delay:-.3s}.eq i:nth-child(3){animation-delay:-.6s}
+@keyframes eq{0%,100%{height:30%}50%{height:100%}}
+.status{display:flex;justify-content:space-between;gap:12px;padding:10px 16px;font-size:12px;color:var(--muted);background:var(--surface)}
+.status .pl{color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini{font:inherit;font-size:12.5px;font-weight:500;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;text-decoration:none;justify-self:end;white-space:nowrap}
+.mini:hover{border-color:var(--muted)}
+.val{font-family:var(--mono);font-size:13px;color:var(--fg);user-select:all}
+
+.preview{position:sticky;top:16px;min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:18px;display:flex;flex-direction:column;gap:14px}
+.art{width:100%;max-width:100%;aspect-ratio:1/1;border-radius:10px;display:flex;align-items:flex-end;padding:14px 16px;color:#fff;
+  font-family:var(--display);font-weight:700;font-size:64px;line-height:.9;letter-spacing:-.03em;
+  background:repeating-radial-gradient(circle at 72% 30%,rgba(255,255,255,.13) 0 1.5px,transparent 1.5px 18px),linear-gradient(135deg,hsl(var(--h) 72% 58%),hsl(calc(var(--h) + 38) 70% 26%))}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.preview h2,.doc h2{font-family:var(--display);font-weight:700;font-size:28px;line-height:1.05;letter-spacing:-.02em;margin:4px 0 0;text-wrap:balance}
+.preview p{margin:0;font-size:16px;line-height:1.7}
+.meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0;padding-block:12px;border-block:1px solid var(--line-soft)}
+.meta div{display:flex;flex-direction:column;min-width:0}
+.meta dt{font-size:11.5px;color:var(--muted)}
+.meta dd{margin:0;font-size:15px;font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.ti{width:16px;height:16px;flex:none;vertical-align:-3px}
+.chip{display:inline-flex;align-items:center;gap:6px}
+.langs{display:flex;align-items:center;gap:4px 12px;overflow:hidden}
+.nm .sub.langs{flex-wrap:wrap}
+.tl{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.name > .ti{width:20px;height:20px}
+#lcd .chip .ti{width:18px;height:18px}
+.chip-groups{display:flex;flex-direction:column;gap:12px}
+.chip-group{display:flex;flex-direction:column;gap:6px}
+.chip-label{font-size:12px;color:var(--muted)}
+.chip.lang{background:var(--sel);border-color:transparent;font-weight:600;color:var(--fg)}
+.chip{font-family:var(--mono);font-size:13.5px;padding:4px 11px;border-radius:999px;border:1px solid var(--line)}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.primary{font:inherit;font-size:14px;font-weight:600;padding:9px 16px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.actions a{font-size:13.5px;text-decoration:none;border-bottom:1px solid var(--line)}
+.actions a:hover{border-color:var(--fg)}
+.file-note{font-family:var(--mono);font-size:13px;color:var(--muted)}
+#lcd .file-note{font-size:15px;color:var(--lcd-muted)}
+
+.doc{padding:28px clamp(18px,4vw,40px) 32px;display:flex;flex-direction:column;gap:14px}
+.doc p{margin:0;max-width:62ch;font-size:16px;line-height:1.75}
+.doc .meta{max-width:520px;margin-top:6px}
+.cf{display:flex;flex-direction:column;gap:14px;max-width:620px;margin-top:4px}
+.cf-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.cf label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
+.cf input,.cf textarea{font:inherit;font-size:15px;font-weight:400;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 13px;width:100%;min-width:0}
+.cf textarea{resize:vertical;min-height:150px;line-height:1.6}
+.cf input:focus,.cf textarea:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+.cf-foot{display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px}
+.cf-send{font:inherit;font-size:15px;font-weight:600;padding:11px 22px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.cf-send:disabled{opacity:.6;cursor:default}
+.cf-status{margin:0;font-size:14px;color:var(--muted)}
+.cf-status.ok{color:#1E8E4E}
+.cf-status.err{color:#C93A2E}
+.cf-hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+#lcd .cf label{color:var(--lcd-muted);font-size:15px}
+#lcd .cf input,#lcd .cf textarea{font-size:17px;color:var(--lcd-fg);background:var(--lcd-bg);border-color:var(--lcd-line)}
+#lcd .cf input:focus,#lcd .cf textarea:focus{outline-color:var(--lcd-sel2)}
+#lcd .cf-send{background:linear-gradient(var(--lcd-sel1),var(--lcd-sel2));color:var(--lcd-on);font-size:17px;padding:13px 26px}
+#lcd .cf-status{font-size:15px;color:var(--lcd-muted)}
+#lcd .lcd-doc p{font-size:18px}
+@media (max-width:600px){ .cf-row{grid-template-columns:minmax(0,1fr)} }
+
+/* ---------- full-screen LCD ---------- */
+#lcd{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;color-scheme:light;
+  background:var(--lcd-bg);color:var(--lcd-fg);font-family:var(--body);
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  clip-path:inset(0px 0px 0px 0px round 0px);transition:clip-path .42s cubic-bezier(.2,.7,.2,1)}
+.lcd-head{flex:none;height:58px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding-inline:12px;
+  background:linear-gradient(var(--lcd-head1),var(--lcd-head2));border-bottom:2px solid var(--lcd-edge)}
+.lcd-head .r{display:flex;justify-content:flex-end;gap:4px}
+.lcd-title{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50vw}
+.lcd-title.toast{color:var(--lcd-sel2)}
+.lcd-ib{width:42px;height:42px;border-radius:9px;border:0;background:transparent;color:var(--lcd-fg);display:grid;place-items:center;cursor:pointer}
+.lcd-ib:hover{background:rgba(0,0,0,.07)}
+.lcd-ib svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.lcd-ib svg.f{fill:currentColor;stroke:none}
+.lcd-body{flex:1;overflow-y:auto}
+.lcd-wrap{max-width:900px;margin:0 auto;padding:28px 16px 48px}
+.lcd-list{display:flex;flex-direction:column}
+.lcd-row{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:16px;min-height:68px;padding:10px 18px;border-radius:10px;cursor:pointer;
+  border-bottom:1px solid var(--lcd-line)}
+.lcd-row.on{background:linear-gradient(var(--lcd-sel1),var(--lcd-sel2));color:var(--lcd-on);border-bottom-color:transparent}
+.lcd-row:focus-visible{outline:2px solid var(--lcd-sel2);outline-offset:2px}
+.lcd-row .t{display:flex;flex-direction:column;min-width:0;flex:1}
+.lcd-row .l{font-size:20px;font-weight:600;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lcd-row small{font-size:15.5px;font-weight:500;color:var(--lcd-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lcd-row .m{font-family:var(--mono);font-size:15.5px;color:var(--lcd-muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.lcd-row.on small,.lcd-row.on .m{color:var(--lcd-on);opacity:.88}
+.lcd-row .chev{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;opacity:.6}
+.lcd-row .thumb{width:46px;height:46px;font-size:16px;border-radius:8px}
+.lcd-row .acts{display:flex;gap:8px}
+.lcd-pill{font:inherit;font-size:14px;font-weight:600;padding:7px 14px;border-radius:999px;border:1px solid var(--lcd-line);background:var(--lcd-bg);color:var(--lcd-fg);cursor:pointer;text-decoration:none;white-space:nowrap}
+.lcd-now{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:44px;align-items:start}
+.lcd-player{display:flex;flex-direction:column;gap:14px;min-width:0}
+.lcd-player .art{font-size:88px}
+.lcd-seek{padding-block:8px;cursor:pointer}
+.lcd-track{height:8px;border-radius:8px;background:var(--lcd-line);overflow:hidden}
+.lcd-track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--lcd-sel1),var(--lcd-sel2))}
+.lcd-times{display:flex;justify-content:space-between;font-family:var(--mono);font-size:15px;color:var(--lcd-muted);font-variant-numeric:tabular-nums;margin-top:-4px}
+.lcd-ctrls{display:flex;justify-content:center;align-items:center;gap:16px}
+.lcd-ctl{width:54px;height:54px;border-radius:50%;border:1px solid var(--lcd-line);background:var(--lcd-bg);color:var(--lcd-fg);display:grid;place-items:center;cursor:pointer}
+.lcd-ctl.main{width:66px;height:66px;border:0;background:linear-gradient(var(--lcd-sel1),var(--lcd-sel2));color:var(--lcd-on)}
+.lcd-ctl svg{width:22px;height:22px;fill:currentColor}
+.lcd-info{display:flex;flex-direction:column;gap:16px;min-width:0}
+#lcd .eyebrow{font-size:13px;color:var(--lcd-muted)}
+.lcd-info h2,.lcd-doc h2{font-family:var(--display);font-weight:700;font-size:clamp(32px,4.6vw,50px);line-height:1;letter-spacing:-.025em;margin:0;text-wrap:balance}
+.lcd-role{font-size:17px;color:var(--lcd-muted)}
+#lcd .chip-label{font-size:14px;color:var(--lcd-muted)}
+#lcd .chip.lang{background:var(--lcd-lang);border-color:transparent;color:var(--lcd-sel2);font-weight:600}
+#lcd .chip{font-size:15.5px;padding:6px 14px;border-color:var(--lcd-line);color:var(--lcd-fg)}
+.lcd-desc{margin:0;font-size:19px;line-height:1.75;max-width:58ch}
+.lcd-links{display:flex;gap:18px;font-size:16px}
+.lcd-links a{text-decoration:none;border-bottom:1px solid var(--lcd-line)}
+.lcd-links a:hover{border-color:var(--lcd-fg)}
+.lcd-doc{display:flex;flex-direction:column;gap:18px}
+.lcd-doc p{margin:0;font-size:20px;line-height:1.8;max-width:56ch}
+#lcd .meta{border-color:var(--lcd-line);max-width:560px}
+#lcd .meta dt{font-size:13.5px;color:var(--lcd-muted)}
+#lcd .meta dd{font-size:17px}
+@media (max-width:720px){
+  .lcd-now{grid-template-columns:minmax(0,1fr);gap:28px}
+  .lcd-player{max-width:none}
+  .lcd-player .art{max-width:220px;margin-inline:auto;font-size:68px}
+  .lcd-wrap{padding:20px 16px 40px}
+  .lcd-ctrls{gap:22px}
+  .lcd-row .l{font-size:18px}
+  .lcd-row .acts .lcd-pill.copy{display:none}
+}
+
+@media (max-width:1000px){
+  .ex,.ex.no-preview{grid-template-columns:180px minmax(0,1fr)}
+  .preview{grid-column:2;position:static}
+  .art{max-width:240px}
+}
+@media (max-width:720px){
+  .ex,.ex.no-preview{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;flex-direction:row;overflow-x:auto;gap:4px;scrollbar-width:none}
+  .side-h{display:none}
+  .side-i{flex:none;padding:7px 12px;border:1px solid var(--line);border-radius:999px}
+  .side-i .count{margin-left:2px}
+  .preview{grid-column:auto}
+  .cols-proj .thead,.cols-proj .row{grid-template-columns:minmax(0,1fr) 3.4em}
+  .cols-contact .thead,.cols-contact .row{grid-template-columns:minmax(0,1fr) auto}
+  .c-stack,.c-year,.c-val{display:none}
+  .nm .sub{display:block}
+  .nm .sub.langs{display:flex}
+  .row{scroll-margin-top:12px}
+  .preview.inline{position:static;border:0;border-radius:0;border-bottom:1px solid var(--line-soft);background:var(--hover);padding:16px 16px 20px;gap:12px}
+  .preview.inline .art{max-width:150px;font-size:44px;padding:10px 12px}
+  .preview.inline h2{font-size:24px}
+  .preview.inline p{font-size:15px}
+  .toolbar{padding:4px}
+}
+@media (max-width:360px){ .dock button{padding:0 13px} .dock button span{display:none} }
+@media (prefers-reduced-motion:reduce){ .view,#lcd,.dock-ind{transition:none} .eq i{animation:none;height:70%} }
+</style>
+</head>
+<body>
+<header class="site-head"><h1>김세광 개발 포트폴리오</h1></header>
+
+<div id="player" class="view">
+  <div id="stage" tabindex="0" aria-label="3D 뮤직 플레이어. 휠을 원형으로 드래그하거나 위아래 화살표로 이동, Enter로 선택, Esc로 뒤로, 스페이스로 재생, F로 화면 크게 보기"></div>
+  <div class="howto-wrap">
+  <ul class="howto" id="howto" aria-label="조작법" hidden>
+    <li><span>휠 돌리기</span>이동</li>
+    <li><span>가운데 버튼</span>선택</li>
+    <li><span>MENU</span>뒤로</li>
+    <li><span>▶❚❚</span>재생</li>
+    <li><span>⏮ ⏭</span>이전 · 다음</li>
+    <li><span>화면 ⤢</span>크게 보기</li>
+    <li class="wide"><span>빈 곳 드래그</span>기기 돌려 보기</li>
+    <li class="kb wide"><span>키보드</span><kbd>↑</kbd><kbd>↓</kbd> 이동 <kbd>Enter</kbd> 선택 <kbd>Esc</kbd> 뒤로 <kbd>Space</kbd> 재생 <kbd>F</kbd> 크게</li>
+  </ul>
+  <button type="button" class="howto-toggle" id="howto-toggle" aria-controls="howto" aria-expanded="false"><span>조작법 올리기</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+  </div>
+</div>
+
+<div id="list" class="view" hidden>
+  <div class="toolbar">
+    <button class="icon-btn" id="up" type="button" aria-label="상위 폴더로"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <nav class="crumbs" id="crumbs" aria-label="경로"></nav>
+  </div>
+  <div class="ex" id="ex">
+    <nav class="side" id="side" aria-label="라이브러리"></nav>
+    <section class="main" id="main"></section>
+    <aside class="preview" id="preview" aria-label="미리보기" hidden></aside>
+  </div>
+</div>
+
+<nav class="dock" id="dock" aria-label="보기 전환">
+  <span class="dock-ind" id="dock-ind" aria-hidden="true"></span>
+  <button type="button" data-view="player" aria-current="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><rect x="8.5" y="5" width="7" height="5" rx=".8"/><circle cx="12" cy="15.5" r="2.6"/></svg><span>플레이어</span></button>
+  <button type="button" data-view="list" aria-current="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg><span>리스트</span></button>
+  <span class="dock-sep" aria-hidden="true"></span>
+  <button type="button" id="dock-lcd" title="기기 화면을 크게 열어 마우스로 탐색 (F)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>크게 보기</span></button>
+  <span class="dock-sep" aria-hidden="true"></span>
+  <button type="button" id="dock-theme" class="icon-only" aria-label="테마: 시스템 설정"><svg viewBox="0 0 24 24" aria-hidden="true"></svg></button>
+</nav>
+
+<div id="lcd" role="dialog" aria-modal="true" aria-label="플레이어 화면 크게 보기" hidden>
+  <header class="lcd-head">
+    <div><button class="lcd-ib" id="lcd-back" type="button" aria-label="뒤로" title="뒤로 (Backspace)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button></div>
+    <div class="lcd-title" id="lcd-title" aria-live="polite">Portfolio</div>
+    <div class="r">
+      <button class="lcd-ib" id="lcd-play" type="button" aria-label="재생" title="재생 / 일시정지 (Space)"><svg class="f" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg></button>
+      <button class="lcd-ib" id="lcd-close" type="button" aria-label="기기로 돌아가기" title="기기로 돌아가기 (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
+    </div>
+  </header>
+  <div class="lcd-body" id="lcd-body"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+/* ===== 내 데이터로 바꾸는 곳 ===== */
+// group = Projects 안의 폴더 이름 (예: "개인 프로젝트", "팀 프로젝트") — 새 이름을 쓰면 폴더가 자동으로 생겨요
+// lang = 직접 작성한 언어, stack = 프레임워크·라이브러리·서버·서비스
+// days = 개발 기간(일). 기기에서는 하루를 1분으로 재생해요. year나 url은 모르면 비워 두세요.
+const projects = [
+  {title:"KSG 커뮤니티", group:"개인 프로젝트", kind:"웹 사이트", year:2024, days:30, period:"1개월", url:"https://sgwng.duckdns.org/",
+   lang:["Java","SQL","HTML","CSS"],
+   stack:["JSP","Apache Tomcat 9","MySQL","Nginx","Bootstrap 5","Ubuntu"], hue:205,
+   desc:"Java(JSP)로 만든 회원제 커뮤니티 사이트. 회원가입, 로그인, 글쓰기를 JSP에서 처리해 MySQL에 저장하고 게시판과 사진 앨범이 있어요. Ubuntu 서버에서 Nginx 뒤에 Tomcat 9를 두고 DuckDNS 도메인으로 운영해요."},
+  {title:"SYSG 게시판", group:"개인 프로젝트", kind:"웹 앱", year:2026, days:7, period:"1주", url:"https://sgwng-cad78.web.app/",
+   lang:["JavaScript","HTML","CSS"],
+   stack:["Firebase Auth","Cloud Firestore","Cloud Messaging","Firebase Hosting","Bootstrap 5","PWA"], hue:150,
+   desc:"빌드 도구 없이 순수 JavaScript(ES 모듈)와 Firebase SDK로 만든 회원제 게시판. 글 목록이 실시간으로 갱신되고, 글마다 전체 공개 답변과 1:1 비공개 대화를 나눌 수 있어요. 이메일 회원가입, 프로필 수정, 웹 푸시 알림, 다크 모드와 헬로키티 테마, 홈 화면 설치(PWA)를 지원해요."},
+  {title:"SY♥SG 데이트 코스", group:"개인 프로젝트", kind:"웹 앱", year:2026, days:7, period:"1주", url:"https://date-course--sysg-date.asia-east1.hosted.app/",
+   lang:["TypeScript"],
+   stack:["Next.js 15","React 19","Tailwind CSS 4","Firebase Auth","Cloud Firestore","Kakao Maps API","dnd-kit","Firebase App Hosting"], hue:342,
+   desc:"장소를 골라 순서대로 이으면 동선, 시간, 비용을 한 번에 보여 주는 데이트 코스 플래너. 카카오맵 위에 코스를 그리고 장소 순서는 끌어서 바꿀 수 있어요. 분위기별 추천, 내 주변 코스 추천, 테마 컬렉션, 후기와 스크랩이 있고 카카오·Google 계정으로 로그인해요."},
+  {title:"KSG 브라우저", group:"개인 프로젝트", kind:"Windows 데스크톱 앱", year:2026, days:1, period:"1일", url:null, file:"KSG-1.0.0 Setup.exe", size:"149MB",
+   download:"https://drive.google.com/file/d/1gqCfPR3G-9pBZm0fhCmK_AdAw2BPlYOa/view?usp=sharing",
+   lang:["TypeScript","HTML","CSS"],
+   stack:["Electron","Electron Forge","Vite"], hue:262,
+   desc:"macOS 스타일의 데스크톱 화면(메뉴 막대, 바탕화면 폴더, 창, Dock)을 가진 Windows용 브라우저. 탭, 책갈피, 다운로드, 프라이빗 창을 지원하고 화면은 모두 HTML과 CSS로 직접 그렸어요."},
+  {title:"KSG 포트폴리오", group:"개인 프로젝트", kind:"웹 사이트", year:2026, days:1, period:"1일", url:null, self:true,
+   lang:["JavaScript","HTML","CSS"],
+   stack:["Three.js","WebGL","Canvas 2D"], hue:38,
+   desc:"지금 보고 있는 이 사이트. Three.js로 3D 휴대용 플레이어를 만들고, 기기 화면 UI는 캔버스에 직접 그려 텍스처로 입혔어요. 클릭 휠 조작, 화면 크게 보기, 탐색기 형태의 리스트 보기, 라이트·다크 테마, 모바일 화면을 지원해요."}
+];
+const tagsOf = p => [...p.lang, ...p.stack];
+const groups = [...new Set(projects.map(p=>p.group))].map(name=>({name, count:projects.filter(p=>p.group===name).length}));
+const runtime = p => p.days*60;
+const metaLine = p => [p.kind, p.year, p.period].filter(Boolean).join(" · ");
+function projLinks(p, cls){
+  if(p.self) return h("span",{class:"file-note"}, "지금 보고 있는 사이트예요");
+  if(p.url) return h("a",{href:p.url, class:cls||null, target:"_blank", rel:"noopener noreferrer"}, "사이트 열기 ↗");
+  if(p.download) return h("a",{href:p.download, class:cls||null, target:"_blank", rel:"noopener noreferrer"}, "설치 파일 받기 · Windows · "+p.size+" ↗");
+  return h("span",{class:"file-note"}, "Windows 설치 파일 · "+p.file);
+}
+const aboutText = ["JSP 커뮤니티 사이트부터 Firebase 웹 앱, Next.js 서비스, Electron 데스크톱 앱, Three.js로 만든 이 포트폴리오까지 직접 만들어 배포한 작업들을 모았어요."];
+const aboutMeta = [["프로젝트",projects.length+"개"],["웹",projects.filter(p=>p.kind.includes("웹")).length+"개"],["데스크톱",projects.filter(p=>p.kind.includes("데스크톱")).length+"개"]];
+// 만 나이는 오늘 날짜로 자동 계산돼요
+const BIRTH = {y:2006, m:7, d:4};
+function koreanAge({y,m,d}){ const t=new Date(); let a=t.getFullYear()-y; if(t.getMonth()+1<m || (t.getMonth()+1===m && t.getDate()<d)) a--; return a; }
+// copy:true 인 항목만 복사 버튼이 생겨요
+const contacts = [
+  {label:'Email', value:'segwankim77@gmail.com', short:'segwankim77@gmail.com', icon:'mail', copy:true},
+  {label:'생년월일', value:'2006.07.04', short:'2006.07.04', icon:'cake'},
+  {label:'만 나이', value:koreanAge(BIRTH)+'세', short:koreanAge(BIRTH)+'세', icon:'user'},
+  {label:'최종학력', value:'해운대고등학교 졸업', short:'해운대고등학교 졸업', icon:'school'}
+];
+// 메시지 폼 전송 주소 (FormSubmit: 처음 한 번 받은편지함의 활성화 메일에서 Activate를 눌러야 해요)
+const CONTACT_TO = 'segwankim77@gmail.com';
+const CONTACT_ENDPOINT = 'https://formsubmit.co/ajax/' + CONTACT_TO;
+/* ============================================== */
+
+const tagMap = new Map();
+projects.forEach(p => tagsOf(p).forEach(t => tagMap.set(t,(tagMap.get(t)||0)+1)));
+const tags = [...tagMap.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).map(([name,count])=>({name,count}));
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2,'0');
+const mmss = s => { s=Math.max(0,Math.floor(s)); return Math.floor(s/60)+':'+pad(s%60); };
+
+/* ---------- player state ---------- */
+let current=0, playing=false, elapsed=0, dirty=true, nowInfo=false, toastText='', toastUntil=0, fsHover=false, lcdOpen=false;
+let spin=0, spinVel=0;
+let stack=[{id:'main', sel:0, top:0}];
+const ROWS=6;
+const topS = () => stack[stack.length-1];
+
+function items(s){
+  switch(s.id){
+    case 'main': return [
+      {label:'Projects', go:'projects'},{label:'Skills', go:'skills'},{label:'About', go:'about'},
+      {label:'Profile', go:'contact'},{label:'Contact', go:'mail'}];
+    case 'projects': return groups.map(g=>({label:g.name, right:String(g.count), go:'group', arg:g.name}));
+    case 'group': return projects.map((p,i)=>({p,i})).filter(o=>o.p.group===s.arg)
+                    .map(o=>({label:o.p.title, right:o.p.period, idx:o.i, act:()=>playTrack(o.i,true)}));
+    case 'skills': return tags.map(t=>({label:t.name, tech:t.name, right:String(t.count), go:'genre', arg:t.name}));
+    case 'genre': return projects.map((p,i)=>({p,i})).filter(o=>tagsOf(o.p).includes(s.arg))
+                    .map(o=>({label:o.p.title, right:o.p.period, idx:o.i, act:()=>playTrack(o.i,true)}));
+    case 'contact': return contacts.map(c=>({label:c.label, right:c.short, act: c.copy ? ()=>copyText(c.value) : null}));
+    default: return null;
+  }
+}
+const titles = {main:'Portfolio', projects:'Projects', skills:'Skills', about:'About', contact:'Profile', mail:'Contact', now:'프로젝트'};
+
+function scroll(d){
+  const s=topS(), list=items(s);
+  if(s.id==='now'){ if(nowInfo) return; const p=projects[current]; elapsed=Math.min(runtime(p)-1,Math.max(0,elapsed+d*5)); dirty=true; return; }
+  if(!list) return;
+  const n=Math.max(0,Math.min(list.length-1,s.sel+d));
+  if(n===s.sel) return;
+  s.sel=n;
+  if(s.sel<s.top) s.top=s.sel;
+  if(s.sel>=s.top+ROWS) s.top=s.sel-ROWS+1;
+  dirty=true;
+}
+function select(){
+  const s=topS(), list=items(s);
+  if(!list){ if(s.id==='now'){ nowInfo=!nowInfo; dirty=true; } else if(s.id==='mail' && has3D){ openLcd(); } return; }
+  const it=list[s.sel];
+  if(it.go) stack.push({id:it.go, sel:0, top:0, arg:it.arg});
+  else if(it.act) it.act();
+  dirty=true;
+}
+function back(){ if(stack.length>1){ stack.pop(); nowInfo=false; dirty=true; } }
+function togglePlay(){ playing=!playing; dirty=true; }
+function playTrack(i, open){
+  const dir = i>current ? 1 : -1;
+  current=(i+projects.length)%projects.length; elapsed=0; playing=true; nowInfo=false;
+  spinVel += 3.4*dir;
+  if(open && topS().id!=='now') stack.push({id:'now', sel:0, top:0});
+  dirty=true;
+}
+function next(){ playTrack(current+1,false); }
+function prev(){ if(elapsed>3){ elapsed=0; dirty=true; } else playTrack(current-1,false); }
+function toast(t){ toastText=t; toastUntil=performance.now()+1600; dirty=true; if(lcdOpen) lcdTitleUpdate(); }
+function setSel(s,i){ s.sel=i; if(i<s.top) s.top=i; if(i>=s.top+ROWS) s.top=i-ROWS+1; dirty=true; }
+function copyText(t, btn){
+  const ok=()=>{ toast('복사됨'); if(btn){ btn.textContent='복사됨'; setTimeout(()=>btn.textContent='복사',1500); } };
+  const fail=()=>toast('복사할 수 없어요');
+  try{ navigator.clipboard.writeText(t).then(ok,fail); }catch(e){ fail(); }
+}
+
+/* ---------- views ---------- */
+const playerEl=$('#player'), listEl=$('#list'), stage=$('#stage');
+let view='player', has3D=false;
+const dock=$('#dock'), dockInd=$('#dock-ind');
+function placeDock(){
+  const b=dock.querySelector('[aria-current="true"]'); if(!b || !b.offsetWidth) return;
+  dockInd.style.width=b.offsetWidth+'px'; dockInd.style.transform='translateX('+b.offsetLeft+'px)';
+}
+function setView(v){
+  if(v===view) return;
+  view=v;
+  dock.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-current', b.dataset.view===v?'true':'false'));
+  placeDock();
+  const out = v==='list' ? playerEl : listEl, inn = v==='list' ? listEl : playerEl;
+  if(v==='list'){ spinVel += 9; renderList(); } else { spinVel -= 7; }
+  const swap=()=>{
+    out.hidden=true; out.classList.remove('leave');
+    document.body.classList.toggle('v-list', v==='list');
+    inn.classList.add('enter'); inn.hidden=false;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>inn.classList.remove('enter')));
+    if(v==='list'){ const f=$('#main [aria-selected="true"], #main .row'); if(f) f.focus({preventScroll:true}); window.scrollTo(0,0); }
+    else stage.focus({preventScroll:true});
+  };
+  if(reduce){ swap(); return; }
+  out.classList.add('leave');
+  setTimeout(swap, 260);
+}
+dock.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+$('#dock-lcd').addEventListener('click',()=>{
+  if(!has3D) return;
+  if(view==='player') openLcd();
+  else { setView('player'); setTimeout(openLcd, reduce?30:620); }
+});
+// 테마: 시스템 → 라이트 → 다크 순서로 바뀌고, 고른 값은 이 브라우저에 기억
+const THEMES=['system','light','dark'], THEME_LABEL={system:'시스템 설정',light:'라이트',dark:'다크'};
+const THEME_ICON={
+  system:'<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>',
+  light:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M2.5 12h2M19.5 12h2M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
+  dark:'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'
+};
+const hostTheme=document.documentElement.getAttribute('data-theme');
+let theme='system';
+try{ theme=localStorage.getItem('ksg-theme')||'system'; }catch(e){}
+if(!THEMES.includes(theme)) theme='system';
+function applyThemeChoice(){
+  const root=document.documentElement, v = theme==='system' ? hostTheme : theme;
+  if(v) root.setAttribute('data-theme',v); else root.removeAttribute('data-theme');
+  const b=$('#dock-theme');
+  b.querySelector('svg').innerHTML=THEME_ICON[theme];
+  b.setAttribute('aria-label','테마: '+THEME_LABEL[theme]+' (눌러서 바꾸기)');
+  b.title='테마: '+THEME_LABEL[theme];
+}
+$('#dock-theme').addEventListener('click',()=>{
+  theme=THEMES[(THEMES.indexOf(theme)+1)%THEMES.length];
+  try{ localStorage.setItem('ksg-theme',theme); }catch(e){}
+  applyThemeChoice();
+});
+applyThemeChoice();
+// 조작법 접기/펴기 (고른 값은 이 브라우저에 기억)
+const howto=$('#howto'), howtoBtn=$('#howto-toggle');
+function setHowto(show){
+  howto.hidden=!show;
+  howtoBtn.setAttribute('aria-expanded', show?'true':'false');
+  howtoBtn.querySelector('span').textContent = show ? '조작법 생략하기' : '조작법 올리기';
+}
+let howtoShown=false;   // 기본은 접힌 상태
+try{ howtoShown = localStorage.getItem('ksg-howto')==='shown'; }catch(e){}
+setHowto(howtoShown);
+howtoBtn.addEventListener('click',()=>{
+  howtoShown=!howtoShown; setHowto(howtoShown);
+  try{ localStorage.setItem('ksg-howto', howtoShown?'shown':'hidden'); }catch(e){}
+});
+new ResizeObserver(placeDock).observe(dock);
+if(document.fonts) document.fonts.ready.then(placeDock);
+placeDock();
+
+/* ---------- explorer ---------- */
+const side=$('#side'), crumbs=$('#crumbs'), mainEl=$('#main'), prevEl=$('#preview'), exEl=$('#ex'), upBtn=$('#up');
+let path=['projects', groups[0].name], listSel=0;
+const FOLDERS=[
+  {id:'projects', name:'Projects', icon:'folder', count:()=>projects.length+'개', kind:'폴더'},
+  {id:'skills', name:'Skills', icon:'folder', count:()=>tags.length+'개', kind:'폴더'},
+  {id:'about', name:'About', icon:'doc', count:()=>'—', kind:'문서'},
+  {id:'contact', name:'Profile', icon:'user', count:()=>contacts.length+'개', kind:'폴더'},
+  {id:'mail', name:'Contact', icon:'mail', count:()=>'', kind:'양식'}
+];
+const ICONS={
+  folder:'<svg class="ico folder" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5C3 5.7 3.7 5 4.5 5h4.4l2 2h8.6c.8 0 1.5.7 1.5 1.5v9c0 .8-.7 1.5-1.5 1.5h-15C3.7 19 3 18.3 3 17.5z"/></svg>',
+  doc:'<svg class="ico line" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4M9.5 12h6M9.5 15.5h6"/></svg>',
+  cake:'<svg class="ico line" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M5 20v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7M5 15c1.5 1 3 1 4.5 0s3-1 4.5 0 3 1 4.5 0M12 11V8"/><path d="M12 4.5c.8.8.8 1.7 0 2.2-.8-.5-.8-1.4 0-2.2z"/></svg>',
+  user:'<svg class="ico line" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg>',
+  school:'<svg class="ico line" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5V16c1.5 1.5 3.5 2.2 5.5 2.2s4-.7 5.5-2.2v-4.5M21.5 9.5V15"/></svg>',
+  mail:'<svg class="ico line" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4 7.5l8 5.5 8-5.5"/></svg>',
+  link:'<svg class="ico line" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>'
+};
+function ico(name){ const t=document.createElement('template'); t.innerHTML=ICONS[name]; return t.content.firstChild; }
+function h(tag, props, ...kids){
+  const el=document.createElement(tag);
+  if(props) for(const k in props){
+    const v=props[k]; if(v==null||v===false) continue;
+    if(k==='class') el.className=v;
+    else if(k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v===true?'':v);
+  }
+  kids.flat().forEach(c=>{ if(c==null||c===false) return; el.append(c.nodeType?c:document.createTextNode(String(c))); });
+  return el;
+}
+const thead = (...cols) => h('div',{class:'thead'}, cols.map(([t,cls])=>h('span',{class:cls||null},t)));
+const eqEl = () => h('span',{class:'eq','aria-label':'재생 중'}, h('i'),h('i'),h('i'));
+/* ---------- 언어·기술 아이콘 (Simple Icons CC0, Java는 Devicon MIT) ---------- */
+const TECH_ICONS={"mysql":{"vb":"0 0 24 24","c":"#4479A1","d":"M16.405 5.501c-.115 0-.193.014-.274.033v.013h.014c.054.104.146.18.214.273.054.107.1.214.154.32l.014-.015c.094-.066.14-.172.14-.333-.04-.047-.046-.094-.08-.14-.04-.067-.126-.1-.18-.153zM5.77 18.695h-.927a50.854 50.854 0 00-.27-4.41h-.008l-1.41 4.41H2.45l-1.4-4.41h-.01a72.892 72.892 0 00-.195 4.41H0c.055-1.966.192-3.81.41-5.53h1.15l1.335 4.064h.008l1.347-4.064h1.095c.242 2.015.384 3.86.428 5.53zm4.017-4.08c-.378 2.045-.876 3.533-1.492 4.46-.482.716-1.01 1.073-1.583 1.073-.153 0-.34-.046-.566-.138v-.494c.11.017.24.026.386.026.268 0 .483-.075.647-.222.197-.18.295-.382.295-.605 0-.155-.077-.47-.23-.944L6.23 14.615h.91l.727 2.36c.164.536.233.91.205 1.123.4-1.064.678-2.227.835-3.483zm12.325 4.08h-2.63v-5.53h.885v4.85h1.745zm-3.32.135l-1.016-.5c.09-.076.177-.158.255-.25.433-.506.648-1.258.648-2.253 0-1.83-.718-2.746-2.155-2.746-.704 0-1.254.232-1.65.697-.43.508-.646 1.256-.646 2.245 0 .972.19 1.686.574 2.14.35.41.877.615 1.583.615.264 0 .506-.033.725-.098l1.325.772.36-.622zM15.5 17.588c-.225-.36-.337-.94-.337-1.736 0-1.393.424-2.09 1.27-2.09.443 0 .77.167.977.5.224.362.336.936.336 1.723 0 1.404-.424 2.108-1.27 2.108-.445 0-.77-.167-.978-.5zm-1.658-.425c0 .47-.172.856-.516 1.156-.344.3-.803.45-1.384.45-.543 0-1.064-.172-1.573-.515l.237-.476c.438.22.833.328 1.19.328.332 0 .593-.073.783-.22a.754.754 0 00.3-.615c0-.33-.23-.61-.648-.845-.388-.213-1.163-.657-1.163-.657-.422-.307-.632-.636-.632-1.177 0-.45.157-.81.47-1.085.315-.278.72-.415 1.22-.415.512 0 .98.136 1.4.41l-.213.476a2.726 2.726 0 00-1.064-.23c-.283 0-.502.068-.654.206a.685.685 0 00-.248.524c0 .328.234.61.666.85.393.215 1.187.67 1.187.67.433.305.648.63.648 1.168zm9.382-5.852c-.535-.014-.95.04-1.297.188-.1.04-.26.04-.274.167.055.053.063.14.11.214.08.134.218.313.346.407.14.11.28.216.427.31.26.16.555.255.81.416.145.094.293.213.44.313.073.05.12.14.214.172v-.02c-.046-.06-.06-.147-.105-.214-.067-.067-.134-.127-.2-.193a3.223 3.223 0 00-.695-.675c-.214-.146-.682-.35-.77-.595l-.013-.014c.146-.013.32-.066.46-.106.227-.06.435-.047.67-.106.106-.027.213-.06.32-.094v-.06c-.12-.12-.21-.283-.334-.395a8.867 8.867 0 00-1.104-.823c-.21-.134-.476-.22-.697-.334-.08-.04-.214-.06-.26-.127-.12-.146-.19-.34-.275-.514a17.69 17.69 0 01-.547-1.163c-.12-.262-.193-.523-.34-.763-.69-1.137-1.437-1.826-2.586-2.5-.247-.14-.543-.2-.856-.274-.167-.008-.334-.02-.5-.027-.11-.047-.216-.174-.31-.235-.38-.24-1.364-.76-1.644-.072-.18.434.267.862.422 1.082.115.153.26.328.34.5.047.116.06.235.107.356.106.294.207.622.347.897.073.14.153.287.247.413.054.073.146.107.167.227-.094.136-.1.334-.154.5-.24.757-.146 1.693.194 2.25.107.166.362.534.703.393.3-.12.234-.5.32-.835.02-.08.007-.133.048-.187v.015c.094.188.188.367.274.555.206.328.566.668.867.895.16.12.287.328.487.402v-.02h-.015c-.043-.058-.1-.086-.154-.133a3.445 3.445 0 01-.35-.4 8.76 8.76 0 01-.747-1.218c-.11-.21-.202-.436-.29-.643-.04-.08-.04-.2-.107-.24-.1.146-.247.273-.32.453-.127.288-.14.642-.188 1.01-.027.007-.014 0-.027.014-.214-.052-.287-.274-.367-.46-.2-.475-.233-1.238-.06-1.785.047-.14.247-.582.167-.716-.042-.127-.174-.2-.247-.303a2.478 2.478 0 01-.24-.427c-.16-.374-.24-.788-.414-1.162-.08-.173-.22-.354-.334-.513-.127-.18-.267-.307-.368-.52-.033-.073-.08-.194-.027-.274.014-.054.042-.075.094-.09.088-.072.335.022.422.062.247.1.455.194.662.334.094.066.195.193.315.226h.14c.214.047.455.014.655.073.355.114.675.28.962.46a5.953 5.953 0 012.085 2.286c.08.154.115.295.188.455.14.33.313.663.455.982.14.315.275.636.476.897.1.14.502.213.682.286.133.06.34.115.46.188.23.14.454.3.67.454.11.076.443.243.463.378z"},"nginx":{"vb":"0 0 24 24","c":"#009639","d":"M12 0L1.605 6v12L12 24l10.395-6V6L12 0zm6 16.59c0 .705-.646 1.29-1.529 1.29-.631 0-1.351-.255-1.801-.81l-6-7.141v6.66c0 .721-.57 1.29-1.274 1.29H7.32c-.721 0-1.29-.6-1.29-1.29V7.41c0-.705.63-1.29 1.5-1.29.646 0 1.38.255 1.83.81l5.97 7.141V7.41c0-.721.6-1.29 1.29-1.29h.075c.72 0 1.29.6 1.29 1.29v9.18H18z"},"tomcat":{"vb":"0 0 24 24","c":"#D1A12C","d":"M12.66 3.494c-.377.637-.544 2.114-.502 3.162l-.005.004c.036.946.165 1.816.372 2.615-3.096.767-6.466 2.795-8.352 4.754-.882-1.19-1.232-2.168-1.336-2.908-.131-.936.092-1.794.646-2.482.867-1.077 2.098-1.153 3.365-.94-.025.2.001.391.081.51.335.494 2.135.668 3.21.189-.793-1.112-2.4-1.654-2.844-1.437a.762.762 0 00-.335.359c-.438-.078-.873-.137-1.19-.134-1.117.008-1.971.398-2.61 1.193-.628.78-.882 1.747-.734 2.8.14.996.633 2.055 1.46 3.154-.138.147-.27.293-.398.436C1.473 17.023 0 19.44 0 19.842v.207h2.658l-.046-.246c-.15-.793.15-1.785.763-2.526.386-.465 1.024-.996 2.027-1.241.891.87 2.027 1.794 3.291 2.685h1.976v-.208a.678.678 0 00-.327-.577c-.312-.204-.794-.232-1.237-.081-.421-.47-.658-1.098-.709-1.877 4.287.38 8.388 2.11 13.015 4.528h2.546l.033-.167c.048-.237-.082-.556-.346-.851-.456-.51-1.349-.752-2.095-.734-.514-.612-3.342-3.591-3.507-3.765a9.626 9.626 0 002.673-2.847h1.388v-.298H20.89a9.81 9.81 0 00.223-.419h.989v-.299h-.845c.628-1.359.975-2.918.942-4.625l.003.002c-.002-.468-.147-2.445-.415-2.989-.726.276-2.047 1.17-2.346 2.084a14.557 14.557 0 00-4.463.056c-.237-.984-1.423-1.736-2.318-2.16zm.164.577c.211 1.148.593 1.869 1.42 2.223.734-.21 1.58-.34 2.448-.388l.717 1.571.46-1.585c.876.029 1.736.142 2.485.349.762-.554 1.057-1.4 1.218-2.138.202.86.178 2.717.18 2.717a9.883 9.883 0 01-.158 1.988l-.824.35.726.11a9.19 9.19 0 01-.198.714l-.703.205.56.201c-.094.253-.2.5-.314.738h-1.16v.299h1.008a8.788 8.788 0 01-.238.419h-.77v.298h.583a8.634 8.634 0 01-2.921 2.748c-1.334-.664-2.341-1.634-3.079-2.748h.446v-.298h-.636a9.195 9.195 0 01-.236-.419h.872v-.299h-1.026a10.12 10.12 0 01-.46-1.094l.522-.147-.659-.263c-.066-.215-.127-.43-.18-.646l1.015-.069-1.16-.615c-.282-1.563-.225-3.08.062-4.221zm2.946 2.97c-.89 0-1.24.909-1.255.948l.252.094c.012-.033.302-.773 1.003-.773.154 0 .262.062.34.195.182.314.152.933 0 1.58h-1.227v.269h1.159a5.679 5.679 0 01-.496 1.225l-.064.112 1.537.967-.865.57.148.224.967-.637 1.043.681.143-.228-.967-.598 1.518-.986v-.001c-.318-.47-.42-.872-.286-1.329h.108l1.167-.001.002-.268h-1.175c.216-.51.52-.968 1.602-.968v-.27c-.999 0-1.596.397-1.883 1.238h-2.154c.15-.672.177-1.333-.046-1.715a.63.63 0 00-.57-.33zm.55 2.313h2.126c-.095.304-.057.763.178 1.157h-2.737c.166-.334.32-.74.433-1.157zm-3.683.321c.155.515.344.997.562 1.451h-.91v.299h1.06c.075.142.153.282.233.419H12.29v.298h1.478c.91 1.416 2.14 2.499 3.534 3.318a9.45 9.45 0 00.456-.28l.362.39-.61.938 1.04-.474.606.652-1.019.776 1.403-.363 1.905 2.05.16-.014c1.007-.086 1.58.46 1.73.63.112.124.179.237.215.326h-2.036c-4.67-2.437-8.771-4.155-13.127-4.53.01-.607.117-1.293.324-2.058l-.4-.108c-.213.786-.325 1.497-.338 2.134-.454-.03-.91-.046-1.371-.046-.391 0-.747.036-1.072.1a14.771 14.771 0 01-1.09-1.21c.546-.57 1.19-1.123 1.893-1.643l.967.668-.316-1.128c.297-.2.603-.394.914-.58l1.434.73-.673-1.162c.198-.106.398-.21.598-.31l2.007 1.346-.66-1.952a15.32 15.32 0 012.034-.667zm3.492 1.105h2.22l-1.084.715zM4.153 14.675c.273.337.577.678.91 1.021a4.104 4.104 0 00-2.007 1.316c-.629.76-.962 1.762-.886 2.622H.495c.337-.728 1.677-2.833 3.658-4.959z"},"bootstrap":{"vb":"0 0 24 24","c":"#7952B3","d":"M11.77 11.24H9.956V8.202h2.152c1.17 0 1.834.522 1.834 1.466 0 1.008-.773 1.572-2.174 1.572zm.324 1.206H9.957v3.348h2.231c1.459 0 2.232-.585 2.232-1.685s-.795-1.663-2.326-1.663zM24 11.39v1.218c-1.128.108-1.817.944-2.226 2.268-.407 1.319-.463 2.937-.42 4.186.045 1.3-.968 2.5-2.337 2.5H4.985c-1.37 0-2.383-1.2-2.337-2.5.043-1.249-.013-2.867-.42-4.186-.41-1.324-1.1-2.16-2.228-2.268V11.39c1.128-.108 1.819-.944 2.227-2.268.408-1.319.464-2.937.42-4.186-.045-1.3.968-2.5 2.338-2.5h14.032c1.37 0 2.382 1.2 2.337 2.5-.043 1.249.013 2.867.42 4.186.409 1.324 1.098 2.16 2.226 2.268zm-7.927 2.817c0-1.354-.953-2.333-2.368-2.488v-.057c1.04-.169 1.856-1.135 1.856-2.213 0-1.537-1.213-2.538-3.062-2.538h-4.16v10.172h4.181c2.218 0 3.553-1.086 3.553-2.876z"},"ubuntu":{"vb":"0 0 24 24","c":"#E95420","d":"M17.61.455a3.41 3.41 0 0 0-3.41 3.41 3.41 3.41 0 0 0 3.41 3.41 3.41 3.41 0 0 0 3.41-3.41 3.41 3.41 0 0 0-3.41-3.41zM12.92.8C8.923.777 5.137 2.941 3.148 6.451a4.5 4.5 0 0 1 .26-.007 4.92 4.92 0 0 1 2.585.737A8.316 8.316 0 0 1 12.688 3.6 4.944 4.944 0 0 1 13.723.834 11.008 11.008 0 0 0 12.92.8zm9.226 4.994a4.915 4.915 0 0 1-1.918 2.246 8.36 8.36 0 0 1-.273 8.303 4.89 4.89 0 0 1 1.632 2.54 11.156 11.156 0 0 0 .559-13.089zM3.41 7.932A3.41 3.41 0 0 0 0 11.342a3.41 3.41 0 0 0 3.41 3.409 3.41 3.41 0 0 0 3.41-3.41 3.41 3.41 0 0 0-3.41-3.41zm2.027 7.866a4.908 4.908 0 0 1-2.915.358 11.1 11.1 0 0 0 7.991 6.698 11.234 11.234 0 0 0 2.422.249 4.879 4.879 0 0 1-.999-2.85 8.484 8.484 0 0 1-.836-.136 8.304 8.304 0 0 1-5.663-4.32zm11.405.928a3.41 3.41 0 0 0-3.41 3.41 3.41 3.41 0 0 0 3.41 3.41 3.41 3.41 0 0 0 3.41-3.41 3.41 3.41 0 0 0-3.41-3.41z"},"firebase":{"vb":"0 0 24 24","c":"#DD2C00","d":"M19.455 8.369c-.538-.748-1.778-2.285-3.681-4.569-.826-.991-1.535-1.832-1.884-2.245a146 146 0 0 0-.488-.576l-.207-.245-.113-.133-.022-.032-.01-.005L12.57 0l-.609.488c-1.555 1.246-2.828 2.851-3.681 4.64-.523 1.064-.864 2.105-1.043 3.176-.047.241-.088.489-.121.738-.209-.017-.421-.028-.632-.033-.018-.001-.035-.002-.059-.003a7.46 7.46 0 0 0-2.28.274l-.317.089-.163.286c-.765 1.342-1.198 2.869-1.252 4.416-.07 2.01.477 3.954 1.583 5.625 1.082 1.633 2.61 2.882 4.42 3.611l.236.095.071.025.003-.001a9.59 9.59 0 0 0 2.941.568q.171.006.342.006c1.273 0 2.513-.249 3.69-.742l.008.004.313-.145a9.63 9.63 0 0 0 3.927-3.335c1.01-1.49 1.577-3.234 1.641-5.042.075-2.161-.643-4.304-2.133-6.371m-7.083 6.695c.328 1.244.264 2.44-.191 3.558-1.135-1.12-1.967-2.352-2.475-3.665-.543-1.404-.87-2.74-.974-3.975.48.157.922.366 1.315.622 1.132.737 1.914 1.902 2.325 3.461zm.207 6.022c.482.368.99.712 1.513 1.028-.771.21-1.565.302-2.369.273a8 8 0 0 1-.373-.022c.458-.394.869-.823 1.228-1.279zm1.347-6.431c-.516-1.957-1.527-3.437-3.002-4.398-.647-.421-1.385-.741-2.194-.95.011-.134.026-.268.043-.4.014-.113.03-.216.046-.313.133-.689.332-1.37.589-2.025.099-.25.206-.499.321-.74l.004-.008c.177-.358.376-.719.61-1.105l.092-.152-.003-.001c.544-.851 1.197-1.627 1.942-2.311l.288.341c.672.796 1.304 1.548 1.878 2.237 1.291 1.549 2.966 3.583 3.612 4.48 1.277 1.771 1.893 3.579 1.83 5.375-.049 1.395-.461 2.755-1.195 3.933-.694 1.116-1.661 2.05-2.8 2.708-.636-.318-1.559-.839-2.539-1.599.79-1.575.952-3.28.479-5.072zm-2.575 5.397c-.725.939-1.587 1.55-2.09 1.856-.081-.029-.163-.06-.243-.093l-.065-.026c-1.49-.616-2.747-1.656-3.635-3.01-.907-1.384-1.356-2.993-1.298-4.653.041-1.19.338-2.327.882-3.379.316-.07.638-.114.96-.131l.084-.002c.162-.003.324-.003.478 0 .227.011.454.035.677.07.073 1.513.445 3.145 1.105 4.852.637 1.644 1.694 3.162 3.144 4.515z"},"next":{"vb":"0 0 24 24","c":null,"d":"M18.665 21.978C16.758 23.255 14.465 24 12 24 5.377 24 0 18.623 0 12S5.377 0 12 0s12 5.377 12 12c0 3.583-1.574 6.801-4.067 9.001L9.219 7.2H7.2v9.596h1.615V9.251l9.85 12.727Zm-3.332-8.533 1.6 2.061V7.2h-1.6v6.245Z"},"react":{"vb":"0 0 24 24","c":"#149ECA","d":"M14.23 12.004a2.236 2.236 0 0 1-2.235 2.236 2.236 2.236 0 0 1-2.236-2.236 2.236 2.236 0 0 1 2.235-2.236 2.236 2.236 0 0 1 2.236 2.236zm2.648-10.69c-1.346 0-3.107.96-4.888 2.622-1.78-1.653-3.542-2.602-4.887-2.602-.41 0-.783.093-1.106.278-1.375.793-1.683 3.264-.973 6.365C1.98 8.917 0 10.42 0 12.004c0 1.59 1.99 3.097 5.043 4.03-.704 3.113-.39 5.588.988 6.38.32.187.69.275 1.102.275 1.345 0 3.107-.96 4.888-2.624 1.78 1.654 3.542 2.603 4.887 2.603.41 0 .783-.09 1.106-.275 1.374-.792 1.683-3.263.973-6.365C22.02 15.096 24 13.59 24 12.004c0-1.59-1.99-3.097-5.043-4.032.704-3.11.39-5.587-.988-6.38-.318-.184-.688-.277-1.092-.278zm-.005 1.09v.006c.225 0 .406.044.558.127.666.382.955 1.835.73 3.704-.054.46-.142.945-.25 1.44-.96-.236-2.006-.417-3.107-.534-.66-.905-1.345-1.727-2.035-2.447 1.592-1.48 3.087-2.292 4.105-2.295zm-9.77.02c1.012 0 2.514.808 4.11 2.28-.686.72-1.37 1.537-2.02 2.442-1.107.117-2.154.298-3.113.538-.112-.49-.195-.964-.254-1.42-.23-1.868.054-3.32.714-3.707.19-.09.4-.127.563-.132zm4.882 3.05c.455.468.91.992 1.36 1.564-.44-.02-.89-.034-1.345-.034-.46 0-.915.01-1.36.034.44-.572.895-1.096 1.345-1.565zM12 8.1c.74 0 1.477.034 2.202.093.406.582.802 1.203 1.183 1.86.372.64.71 1.29 1.018 1.946-.308.655-.646 1.31-1.013 1.95-.38.66-.773 1.288-1.18 1.87-.728.063-1.466.098-2.21.098-.74 0-1.477-.035-2.202-.093-.406-.582-.802-1.204-1.183-1.86-.372-.64-.71-1.29-1.018-1.946.303-.657.646-1.313 1.013-1.954.38-.66.773-1.286 1.18-1.868.728-.064 1.466-.098 2.21-.098zm-3.635.254c-.24.377-.48.763-.704 1.16-.225.39-.435.782-.635 1.174-.265-.656-.49-1.31-.676-1.947.64-.15 1.315-.283 2.015-.386zm7.26 0c.695.103 1.365.23 2.006.387-.18.632-.405 1.282-.66 1.933-.2-.39-.41-.783-.64-1.174-.225-.392-.465-.774-.705-1.146zm3.063.675c.484.15.944.317 1.375.498 1.732.74 2.852 1.708 2.852 2.476-.005.768-1.125 1.74-2.857 2.475-.42.18-.88.342-1.355.493-.28-.958-.646-1.956-1.1-2.98.45-1.017.81-2.01 1.085-2.964zm-13.395.004c.278.96.645 1.957 1.1 2.98-.45 1.017-.812 2.01-1.086 2.964-.484-.15-.944-.318-1.37-.5-1.732-.737-2.852-1.706-2.852-2.474 0-.768 1.12-1.742 2.852-2.476.42-.18.88-.342 1.356-.494zm11.678 4.28c.265.657.49 1.312.676 1.948-.64.157-1.316.29-2.016.39.24-.375.48-.762.705-1.158.225-.39.435-.788.636-1.18zm-9.945.02c.2.392.41.783.64 1.175.23.39.465.772.705 1.143-.695-.102-1.365-.23-2.006-.386.18-.63.406-1.282.66-1.933zM17.92 16.32c.112.493.2.968.254 1.423.23 1.868-.054 3.32-.714 3.708-.147.09-.338.128-.563.128-1.012 0-2.514-.807-4.11-2.28.686-.72 1.37-1.536 2.02-2.44 1.107-.118 2.154-.3 3.113-.54zm-11.83.01c.96.234 2.006.415 3.107.532.66.905 1.345 1.727 2.035 2.446-1.595 1.483-3.092 2.295-4.11 2.295-.22-.005-.406-.05-.553-.132-.666-.38-.955-1.834-.73-3.703.054-.46.142-.944.25-1.438zm4.56.64c.44.02.89.034 1.345.034.46 0 .915-.01 1.36-.034-.44.572-.895 1.095-1.345 1.565-.455-.47-.91-.993-1.36-1.565z"},"tailwind":{"vb":"0 0 24 24","c":"#06B6D4","d":"M12.001,4.8c-3.2,0-5.2,1.6-6,4.8c1.2-1.6,2.6-2.2,4.2-1.8c0.913,0.228,1.565,0.89,2.288,1.624 C13.666,10.618,15.027,12,18.001,12c3.2,0,5.2-1.6,6-4.8c-1.2,1.6-2.6,2.2-4.2,1.8c-0.913-0.228-1.565-0.89-2.288-1.624 C16.337,6.182,14.976,4.8,12.001,4.8z M6.001,12c-3.2,0-5.2,1.6-6,4.8c1.2-1.6,2.6-2.2,4.2-1.8c0.913,0.228,1.565,0.89,2.288,1.624 c1.177,1.194,2.538,2.576,5.512,2.576c3.2,0,5.2-1.6,6-4.8c-1.2,1.6-2.6,2.2-4.2,1.8c-0.913-0.228-1.565-0.89-2.288-1.624 C10.337,13.382,8.976,12,6.001,12z"},"electron":{"vb":"0 0 24 24","c":"#47848F","d":"M12.0111 0c-.85 0-1.5392.6891-1.5392 1.5392 0 .8501.6891 1.5393 1.5392 1.5393.595 0 1.11-.338 1.3662-.832 2.2208 1.2675 3.847 5.4728 3.847 10.3623 0 2.0715-.2891 4.056-.825 5.7685a.3215.3215 0 0 0 .2107.403.322.322 0 0 0 .4033-.2111c.5558-1.7763.8542-3.8251.8542-5.9604 0-5.1927-1.7717-9.686-4.3206-11.0027.001-.0223.0035-.0443.0035-.0669 0-.85-.6891-1.5392-1.5393-1.5392zm0 .6432a.896.896 0 1 1 0 1.792.896.896 0 1 1 0-1.792zm-5.486 4.3052c-2.067.0074-3.6473.6646-4.3885 1.9485-.7375 1.2774-.5267 2.971.5113 4.7813a.3217.3217 0 0 0 .558-.32C2.271 9.7274 2.089 8.266 2.6938 7.2185c.821-1.422 3.033-1.9552 5.9321-1.4271a.3216.3216 0 0 0 .1153-.6329c-.784-.1428-1.5271-.2125-2.216-.21zm11.0522.0176a.3216.3216 0 0 0-.0084.6432c1.8337.0239 3.1556.5956 3.7502 1.6256.8192 1.419.1798 3.5947-1.7182 5.837a.322.322 0 0 0 .0377.4535.3215.3215 0 0 0 .4532-.0377c2.0535-2.426 2.7708-4.8661 1.7845-6.5744-.7257-1.257-2.26-1.9207-4.299-1.9472zm-2.6984.2924a.3225.3225 0 0 0-.0647.0072c-1.8568.3979-3.8333 1.1755-5.7314 2.2714-4.5699 2.6384-7.5924 6.4948-7.3601 9.3717-.4726.2628-.7928.7664-.7928 1.3455 0 .85.6892 1.5392 1.5393 1.5392.85 0 1.5392-.6891 1.5392-1.5392 0-.8501-.6891-1.5393-1.5392-1.5393-.038 0-.0754.003-.1128.0057-.1002-2.5597 2.7434-6.1412 7.048-8.6265 1.8413-1.063 3.7551-1.8163 5.5445-2.1997a.3217.3217 0 0 0-.07-.636zm-2.8787 6.2364a1.1192 1.1192 0 0 0-.2243.0255c-.6012.1301-.983.7225-.8533 1.3238.1302.6012.7226.9832 1.3238.8533.6012-.1302.9832-.7226.8533-1.3238-.1139-.526-.5816-.8844-1.0995-.8788zM4.532 13.341a.321.321 0 0 0-.2318.0835.3214.3214 0 0 0-.0214.4542c1.2682 1.3936 2.9157 2.701 4.7946 3.7857 4.4146 2.5489 9.1056 3.2849 11.5608 1.8392a1.53 1.53 0 0 0 .8966.2899c.8501 0 1.5392-.6891 1.5392-1.5392 0-.8501-.689-1.5393-1.5392-1.5393-.85 0-1.5392.6892-1.5392 1.5393 0 .276.0737.5344.201.7584-2.2448 1.214-6.631.5002-10.7976-1.9054-1.8228-1.0524-3.418-2.3181-4.6404-3.6614a.3206.3206 0 0 0-.2226-.1049zm-2.0628 4.0172a.896.896 0 1 1 0 1.792.896.896 0 1 1 0-1.792zm19.0616 0a.896.896 0 1 1 0 1.792.891.891 0 0 1-.5864-.2194c-.0025-.004-.0039-.0083-.0066-.0123a.3195.3195 0 0 0-.0957-.0914.896.896 0 0 1 .6887-1.4689zm-14.0045 1.368a.3215.3215 0 0 0-.3207.4296C8.2793 22.154 10.036 24 12.0111 24c1.4406 0 2.7735-.9822 3.8128-2.711a.3215.3215 0 0 0-.11-.4413.3219.3219 0 0 0-.4415.11c-.934 1.5537-2.0812 2.399-3.2613 2.399-1.6407 0-3.2075-1.6465-4.2-4.4179a.3216.3216 0 0 0-.2848-.2126z"},"vite":{"vb":"0 0 24 24","c":"#646CFF","d":"m8.286 10.578.512-8.657a.306.306 0 0 1 .247-.282L17.377.006a.306.306 0 0 1 .353.385l-1.558 5.403a.306.306 0 0 0 .352.385l2.388-.46a.306.306 0 0 1 .332.438l-6.79 13.55-.123.19a.294.294 0 0 1-.252.14c-.177 0-.35-.152-.305-.369l1.095-5.301a.306.306 0 0 0-.388-.355l-1.433.435a.306.306 0 0 1-.389-.354l.69-3.375a.306.306 0 0 0-.37-.36l-2.32.536a.306.306 0 0 1-.374-.316zm14.976-7.926L17.284 3.74l-.544 1.887 2.077-.4a.8.8 0 0 1 .84.369.8.8 0 0 1 .034.783L12.9 19.93l-.013.025-.015.023-.122.19a.801.801 0 0 1-.672.37.826.826 0 0 1-.634-.302.8.8 0 0 1-.16-.67l1.029-4.981-1.12.34a.81.81 0 0 1-.86-.262.802.802 0 0 1-.165-.67l.63-3.08-2.027.468a.808.808 0 0 1-.768-.233.81.81 0 0 1-.217-.6l.389-6.57-7.44-1.33a.612.612 0 0 0-.64.906L11.58 23.691a.612.612 0 0 0 1.066-.004l11.26-20.135a.612.612 0 0 0-.644-.9z"},"three":{"vb":"0 0 24 24","c":null,"d":"M.38 0a.268.268 0 0 0-.256.332l2.894 11.716a.268.268 0 0 0 .01.04l2.89 11.708a.268.268 0 0 0 .447.128L23.802 7.15a.268.268 0 0 0-.112-.45l-5.784-1.667a.268.268 0 0 0-.123-.035L6.38 1.715a.268.268 0 0 0-.144-.04L.456.01A.268.268 0 0 0 .38 0zm.374.654L5.71 2.08 1.99 5.664zM6.61 2.34l4.864 1.4-3.65 3.515zm-.522.12l1.217 4.926-4.877-1.4zm6.28 1.538l4.878 1.404-3.662 3.53zm-.52.13l1.208 4.9-4.853-1.392zm6.3 1.534l4.947 1.424-3.715 3.574zm-.524.12l1.215 4.926-4.876-1.398zm-15.432.696l4.964 1.424-3.726 3.586zM8.047 8.15l4.877 1.4-3.66 3.527zm-.518.137l1.236 5.017-4.963-1.432zm6.274 1.535l4.965 1.425-3.73 3.586zm-.52.127l1.235 5.012-4.958-1.43zm-9.63 2.438l4.873 1.406-3.656 3.523zm5.854 1.687l4.863 1.403-3.648 3.51zm-.54.04l1.214 4.927-4.875-1.4zm-3.896 4.02l5.037 1.442-3.782 3.638z"},"html5":{"vb":"0 0 24 24","c":"#E34F26","d":"M1.5 0h21l-1.91 21.563L11.977 24l-8.564-2.438L1.5 0zm7.031 9.75l-.232-2.718 10.059.003.23-2.622L5.412 4.41l.698 8.01h9.126l-.326 3.426-2.91.804-2.955-.81-.188-2.11H6.248l.33 4.171L12 19.351l5.379-1.443.744-8.157H8.531z"},"css3":{"vb":"0 0 24 24","c":"#1572B6","d":"M1.5 0h21l-1.91 21.563L11.977 24l-8.565-2.438L1.5 0zm17.09 4.413L5.41 4.41l.213 2.622 10.125.002-.255 2.716h-6.64l.24 2.573h6.182l-.366 3.523-2.91.804-2.956-.81-.188-2.11h-2.61l.29 3.855L12 19.288l5.373-1.53L18.59 4.414z"},"javascript":{"vb":"0 0 24 24","c":"#E8C800","d":"M0 0h24v24H0V0zm22.034 18.276c-.175-1.095-.888-2.015-3.003-2.873-.736-.345-1.554-.585-1.797-1.14-.091-.33-.105-.51-.046-.705.15-.646.915-.84 1.515-.66.39.12.75.42.976.9 1.034-.676 1.034-.676 1.755-1.125-.27-.42-.404-.601-.586-.78-.63-.705-1.469-1.065-2.834-1.034l-.705.089c-.676.165-1.32.525-1.71 1.005-1.14 1.291-.811 3.541.569 4.471 1.365 1.02 3.361 1.244 3.616 2.205.24 1.17-.87 1.545-1.966 1.41-.811-.18-1.26-.586-1.755-1.336l-1.83 1.051c.21.48.45.689.81 1.109 1.74 1.756 6.09 1.666 6.871-1.004.029-.09.24-.705.074-1.65l.046.067zm-8.983-7.245h-2.248c0 1.938-.009 3.864-.009 5.805 0 1.232.063 2.363-.138 2.711-.33.689-1.18.601-1.566.48-.396-.196-.597-.466-.83-.855-.063-.105-.11-.196-.127-.196l-1.825 1.125c.305.63.75 1.172 1.324 1.517.855.51 2.004.675 3.207.405.783-.226 1.458-.691 1.811-1.411.51-.93.402-2.07.397-3.346.012-2.054 0-4.109 0-6.179l.004-.056z"},"typescript":{"vb":"0 0 24 24","c":"#3178C6","d":"M1.125 0C.502 0 0 .502 0 1.125v21.75C0 23.498.502 24 1.125 24h21.75c.623 0 1.125-.502 1.125-1.125V1.125C24 .502 23.498 0 22.875 0zm17.363 9.75c.612 0 1.154.037 1.627.111a6.38 6.38 0 0 1 1.306.34v2.458a3.95 3.95 0 0 0-.643-.361 5.093 5.093 0 0 0-.717-.26 5.453 5.453 0 0 0-1.426-.2c-.3 0-.573.028-.819.086a2.1 2.1 0 0 0-.623.242c-.17.104-.3.229-.393.374a.888.888 0 0 0-.14.49c0 .196.053.373.156.529.104.156.252.304.443.444s.423.276.696.41c.273.135.582.274.926.416.47.197.892.407 1.266.628.374.222.695.473.963.753.268.279.472.598.614.957.142.359.214.776.214 1.253 0 .657-.125 1.21-.373 1.656a3.033 3.033 0 0 1-1.012 1.085 4.38 4.38 0 0 1-1.487.596c-.566.12-1.163.18-1.79.18a9.916 9.916 0 0 1-1.84-.164 5.544 5.544 0 0 1-1.512-.493v-2.63a5.033 5.033 0 0 0 3.237 1.2c.333 0 .624-.03.872-.09.249-.06.456-.144.623-.25.166-.108.29-.234.373-.38a1.023 1.023 0 0 0-.074-1.089 2.12 2.12 0 0 0-.537-.5 5.597 5.597 0 0 0-.807-.444 27.72 27.72 0 0 0-1.007-.436c-.918-.383-1.602-.852-2.053-1.405-.45-.553-.676-1.222-.676-2.005 0-.614.123-1.141.369-1.582.246-.441.58-.804 1.004-1.089a4.494 4.494 0 0 1 1.47-.629 7.536 7.536 0 0 1 1.77-.201zm-15.113.188h9.563v2.166H9.506v9.646H6.789v-9.646H3.375z"},"pwa":{"vb":"0 0 24 24","c":"#5A0FC8","d":"M20.5967 7.482L24 16.518h-2.5098l-.5816-1.6184h-3.2452l.6933-1.7532h2.0019l-.95-2.6597 1.1881-3.0047zm-8.111 0l1.7722 5.8393L16.75 7.482h2.4154l-3.6433 9.036h-2.3833l-1.6395-5.2366-1.7196 5.2366h-2.377l-1.233-2.1161 1.2144-3.7415 1.342 2.6609 1.9029-5.8393h1.8566zm-8.7453 0c1.0635 0 1.8713.3055 2.4234.9166a2.647 2.647 0 01.2806.3684l-1.0753 3.3128-.3847 1.1854c-.352.1006-.7533.1509-1.204.1509H2.2928v3.102H0V7.482zm-.5816 1.7532h-.866v2.4276h.8597c.5577 0 .9406-.1194 1.1485-.3582.1896-.215.2845-.5058.2845-.8724 0-.364-.1079-.6544-.3235-.8714-.2157-.217-.5834-.3256-1.1032-.3256z"},"kakao":{"vb":"0 0 24 24","c":"#E5B800","d":"M3.0743 10.4403l.655.4728-1.6101 2.0192 1.8647 2.2373-.646.5004-2.201-2.6924zm-2.2376 5.102H0V8.5121l.8367-.182zm20.944-4.3837c-.4364 0-.7715.1637-1.0049.4912-.2338.3274-.3505.8064-.3505 1.437 0 .6247.1167 1.096.3505 1.4143.2334.3183.5685.4775 1.0049.4775.4423 0 .7804-.1593 1.0143-.4775.2332-.3182.35-.7896.35-1.4142 0-.6307-.1168-1.1097-.35-1.4371-.234-.3275-.572-.4912-1.0143-.4912m0-.673c.691 0 1.234.2245 1.6277.673.3944.4488.5916 1.0915.5916 1.9283 0 .8244-.1955 1.4583-.5868 1.901-.3909.4422-.9356.6637-1.6325.6637-.691 0-1.234-.2215-1.6277-.6638-.3944-.4426-.5916-1.0765-.5916-1.901 0-.8367.1984-1.4794.5957-1.9282.3973-.4485.9385-.673 1.6236-.673m-5.534 4.4658a1.496 1.496 0 0 0 .3576-.0456 2.8804 2.8804 0 0 0 .3713-.1181 2.0066 2.0066 0 0 0 .3488-.1774 2.0778 2.0778 0 0 0 .2895-.2229v-1.1641h-.8693c-.441 0-.7626.0758-.9645.2274-.2025.1516-.3031.391-.3031.7185 0 .5214.2563.7822.7697.7822m-1.5704-.7458c0-.5032.1682-.887.5045-1.1504.337-.2638.826-.396 1.4691-.396h.964v-.3182c0-.77-.3393-1.155-1.0185-1.155-.2184 0-.447.0304-.6869.091-.2398.0608-.4594.1365-.659.2274l-.2457-.5913c.2487-.1394.517-.2469.8047-.323.2878-.0754.5685-.1136.8414-.1136 1.176 0 1.7646.6276 1.7646 1.8826v3.1833h-.6188l-.1-.5457c-.2488.2001-.5134.3547-.796.464-.2817.1092-.55.1637-.8046.1637-.4429 0-.7899-.1258-1.0416-.3775-.2515-.2517-.3772-.5987-.3772-1.0413m-1.6508-3.7653l.655.4728-1.6095 2.0192 1.864 2.2373-.6454.5004-2.201-2.6924zm-2.237 5.102h-.8367V8.5121l.8368-.182zm-4.4936-.5909c.1148 0 .2339-.0151.3576-.0456a2.8794 2.8794 0 0 0 .3713-.1181 1.9842 1.9842 0 0 0 .3488-.1774 2.0477 2.0477 0 0 0 .29-.2229v-1.1641h-.8698c-.4404 0-.762.0758-.9645.2274-.202.1516-.3031.391-.3031.7185 0 .5214.2563.7822.7697.7822m-1.5704-.7458c0-.5032.1682-.887.5052-1.1504.3363-.2638.826-.396 1.4684-.396h.9646v-.3182c0-.77-.3399-1.155-1.019-1.155-.218 0-.4471.0304-.6863.091-.2398.0608-.4595.1365-.6597.2274l-.2457-.5913c.2487-.1394.517-.2469.8053-.323.2878-.0754.5684-.1136.8408-.1136 1.1766 0 1.7646.6276 1.7646 1.8826v3.1833h-.6182l-.1001-.5457c-.2487.2001-.514.3547-.7958.464-.282.1092-.5501.1637-.8053.1637-.4423 0-.7893-.1258-1.041-.3775-.2516-.2517-.3778-.5987-.3778-1.0413Z"},"webgl":{"vb":"0 0 24 24","c":"#990000","d":"M18.928 14.179c-.214.09-.427.135-.643.135-.342 0-.65-.059-.923-.178a1.963 1.963 0 0 1-.69-.491c-.187-.209-.332-.453-.432-.735s-.149-.586-.149-.911c0-.335.05-.643.149-.93.1-.287.242-.536.429-.747a1.96 1.96 0 0 1 .69-.501 2.25 2.25 0 0 1 .923-.183c.23 0 .451.036.664.104.214.069.408.171.581.304s.316.299.427.496a1.7 1.7 0 0 1 .206.676h-.935c-.059-.249-.171-.437-.337-.562a.973.973 0 0 0-.607-.187c-.221 0-.408.043-.562.128s-.28.199-.375.344c-.095.145-.166.308-.209.491s-.066.372-.066.569c0 .187.021.37.066.548.043.178.114.337.209.479.095.142.221.256.375.342s.342.128.562.128c.325 0 .577-.083.754-.247.178-.164.28-.401.311-.714h-.987V11.8h1.872v2.413h-.624l-.1-.505a1.444 1.444 0 0 1-.579.471zm2.896-4.429v3.632H24v.828h-3.155V9.75h.979zM2.785 11.999c0-.709.343-1.376.948-1.962l1.109 4.221h.764l1.075-3.815 1.06 3.815h.766l1.321-4.856h-.86l-.861 3.725-1.039-3.726H6.28l-1.039 3.725-.84-3.632c1.489-1.025 3.868-1.69 6.548-1.69 2.512 0 4.764.529 6.261 1.445-1.632-1.535-4.565-2.612-7.915-2.614C4.161 6.635 0 9.036 0 11.999s4.161 5.367 9.293 5.367c3.338 0 6.261-1.075 7.9-2.6-1.497.911-3.741 1.428-6.244 1.428-4.51-.001-8.164-1.877-8.164-4.195zm9.194-.553a1.184 1.184 0 0 0-.444-.384 1.378 1.378 0 0 0-.622-.135c-.261 0-.496.047-.7.14a1.313 1.313 0 0 0-.489.387c-.244.311-.372.75-.372 1.269 0 .23.033.448.097.643a1.5 1.5 0 0 0 .285.515c.261.304.633.465 1.077.465.233 0 .422-.024.581-.074.138-.043.23-.1.306-.149a1.357 1.357 0 0 0 .444-.489c.09-.166.135-.323.145-.403l.007-.055h-.633l-.002.045c-.017.206-.287.574-.769.574-.688 0-.852-.498-.864-.937h2.306v-.05a3.15 3.15 0 0 0-.085-.766 1.84 1.84 0 0 0-.268-.596zm-1.139.05c.51 0 .783.275.833.84h-1.651c.025-.458.388-.84.818-.84zm4.678.415a1.575 1.575 0 0 0-.268-.515 1.25 1.25 0 0 0-.437-.346 1.36 1.36 0 0 0-.586-.126 1.141 1.141 0 0 0-.531.128 1.1 1.1 0 0 0-.346.28v-1.49h-.631v4.413h.6v-.301a.964.964 0 0 0 .211.206c.171.123.382.185.626.185.263 0 .501-.059.7-.176.178-.104.33-.254.448-.444a1.93 1.93 0 0 0 .235-.584 2.66 2.66 0 0 0 .069-.603 1.986 1.986 0 0 0-.09-.627zm-.567.717c0 .346-.069.636-.202.84a.682.682 0 0 1-.605.325c-.377 0-.819-.263-.819-1.008 0-.356.045-.631.135-.84.13-.301.351-.446.671-.446.342 0 .572.133.7.41.106.227.12.505.12.719z"},"java":{"vb":"0 0 128 128","raw":"<path fill=\"#0074BD\" d=\"M47.617 98.12s-4.767 2.774 3.397 3.71c9.892 1.13 14.947.968 25.845-1.092 0 0 2.871 1.795 6.873 3.351-24.439 10.47-55.308-.607-36.115-5.969zm-2.988-13.665s-5.348 3.959 2.823 4.805c10.567 1.091 18.91 1.18 33.354-1.6 0 0 1.993 2.025 5.132 3.131-29.542 8.64-62.446.68-41.309-6.336z\"/><path fill=\"#EA2D2E\" d=\"M69.802 61.271c6.025 6.935-1.58 13.17-1.58 13.17s15.289-7.891 8.269-17.777c-6.559-9.215-11.587-13.792 15.635-29.58 0 .001-42.731 10.67-22.324 34.187z\"/><path fill=\"#0074BD\" d=\"M102.123 108.229s3.529 2.91-3.888 5.159c-14.102 4.272-58.706 5.56-71.094.171-4.451-1.938 3.899-4.625 6.526-5.192 2.739-.593 4.303-.485 4.303-.485-4.953-3.487-32.013 6.85-13.743 9.815 49.821 8.076 90.817-3.637 77.896-9.468zM49.912 70.294s-22.686 5.389-8.033 7.348c6.188.828 18.518.638 30.011-.326 9.39-.789 18.813-2.474 18.813-2.474s-3.308 1.419-5.704 3.053c-23.042 6.061-67.544 3.238-54.731-2.958 10.832-5.239 19.644-4.643 19.644-4.643zm40.697 22.747c23.421-12.167 12.591-23.86 5.032-22.285-1.848.385-2.677.72-2.677.72s.688-1.079 2-1.543c14.953-5.255 26.451 15.503-4.823 23.725 0-.002.359-.327.468-.617z\"/><path fill=\"#EA2D2E\" d=\"M76.491 1.587S89.459 14.563 64.188 34.51c-20.266 16.006-4.621 25.13-.007 35.559-11.831-10.673-20.509-20.07-14.688-28.815C58.041 28.42 81.722 22.195 76.491 1.587z\"/><path fill=\"#0074BD\" d=\"M52.214 126.021c22.476 1.437 57-.8 57.817-11.436 0 0-1.571 4.032-18.577 7.231-19.186 3.612-42.854 3.191-56.887.874 0 .001 2.875 2.381 17.647 3.331z\"/>"},"db":{"vb":"0 0 24 24","c":"#4A6FA5","stroke":"<ellipse cx=\"12\" cy=\"5.5\" rx=\"7\" ry=\"2.8\"/><path d=\"M5 5.5v13c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-13M5 12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8\"/>"},"canvas":{"vb":"0 0 24 24","c":"#D9711F","stroke":"<rect x=\"3.5\" y=\"4.5\" width=\"17\" height=\"14\" rx=\"2\"/><path d=\"M7 15l3.2-3.6 2.6 2.6 2-2.2L18 15\"/>"},"drag":{"vb":"0 0 24 24","c":null,"raw":"<circle cx=\"9\" cy=\"6\" r=\"1.7\"/><circle cx=\"15\" cy=\"6\" r=\"1.7\"/><circle cx=\"9\" cy=\"12\" r=\"1.7\"/><circle cx=\"15\" cy=\"12\" r=\"1.7\"/><circle cx=\"9\" cy=\"18\" r=\"1.7\"/><circle cx=\"15\" cy=\"18\" r=\"1.7\"/>"}};
+const TECH_RULES=[[/^(Java|JSP)$/,'java'],[/^SQL$/,'db'],[/^HTML/,'html5'],[/^CSS$/,'css3'],[/^JavaScript$/,'javascript'],[/^TypeScript$/,'typescript'],
+  [/Tomcat/,'tomcat'],[/MySQL/,'mysql'],[/Nginx/i,'nginx'],[/Bootstrap/,'bootstrap'],[/Ubuntu/,'ubuntu'],[/Firebase|Firestore|Cloud Messaging/,'firebase'],
+  [/^PWA$/,'pwa'],[/^Next\.js/,'next'],[/^React/,'react'],[/Tailwind/,'tailwind'],[/Kakao/,'kakao'],[/dnd-kit/,'drag'],[/Electron/,'electron'],
+  [/^Vite/,'vite'],[/Three\.js/,'three'],[/WebGL/,'webgl'],[/Canvas/,'canvas']];
+function techKey(tag){ const r=TECH_RULES.find(([re])=>re.test(tag)); return r ? r[1] : null; }
+function techSvg(key, fallbackColor){
+  const ic=TECH_ICONS[key]; if(!ic) return '';
+  const col=ic.c || fallbackColor;
+  const inner = ic.stroke ? '<g fill="none" stroke="'+col+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+ic.stroke+'</g>'
+              : ic.d ? '<path fill="'+col+'" d="'+ic.d+'"/>'
+              : '<g fill="'+col+'">'+ic.raw+'</g>';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+ic.vb+'">'+inner+'</svg>';
+}
+function techIcon(tag){
+  const key=techKey(tag); if(!key) return null;
+  const t=document.createElement('template'); t.innerHTML=techSvg(key,'currentColor');
+  const el=t.content.firstChild; el.setAttribute('class','ti'); el.setAttribute('aria-hidden','true'); return el;
+}
+const techLabel = tag => h('span',{class:'tl'}, techIcon(tag), tag);
+// 기기 화면(캔버스)용 이미지
+const techImgs={};
+function techImg(tag){
+  const key=techKey(tag); if(!key) return null;
+  if(!techImgs[key]){
+    const im=new Image(); im.onload=()=>{ dirty=true; };
+    im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(techSvg(key,'#15181D').replace('<svg ','<svg width="96" height="96" '));
+    techImgs[key]=im;
+  }
+  const im=techImgs[key]; return im.complete && im.naturalWidth ? im : null;
+}
+function contactForm(prefix){
+  const id = k => prefix+'-'+k;
+  const status=h('p',{class:'cf-status', id:id('status'), role:'status', 'aria-live':'polite'});
+  const btn=h('button',{type:'submit', class:'cf-send', id:id('send')}, '보내기');
+  const form=h('form',{class:'cf', id:id('form'), novalidate:true},
+    h('div',{class:'cf-row'},
+      h('label',{for:id('name')}, '이름', h('input',{id:id('name'), name:'name', type:'text', autocomplete:'name', required:true, maxlength:'60'})),
+      h('label',{for:id('email')}, '답장 받을 이메일', h('input',{id:id('email'), name:'email', type:'email', autocomplete:'email', required:true, maxlength:'120'}))),
+    h('label',{for:id('msg')}, '내용', h('textarea',{id:id('msg'), name:'message', rows:'6', required:true, maxlength:'4000'})),
+    h('input',{type:'text', name:'_honey', tabindex:'-1', autocomplete:'off', class:'cf-hp', 'aria-hidden':'true'}),
+    h('div',{class:'cf-foot'}, btn, status));
+  form.addEventListener('submit', e=>{ e.preventDefault(); sendMessage(form, status, btn); });
+  return form;
+}
+async function sendMessage(form, status, btn){
+  const fd=new FormData(form);
+  if(fd.get('_honey')) return;
+  const name=String(fd.get('name')||'').trim(), email=String(fd.get('email')||'').trim(), message=String(fd.get('message')||'').trim();
+  const bad = !name ? '이름을 적어 주세요.' : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? '답장 받을 이메일 주소를 확인해 주세요.' : !message ? '내용을 적어 주세요.' : '';
+  status.className='cf-status';
+  if(bad){ status.textContent=bad; status.classList.add('err'); return; }
+  btn.disabled=true; btn.textContent='보내는 중…'; status.textContent='';
+  try{
+    const r=await fetch(CONTACT_ENDPOINT,{method:'POST', headers:{'Content-Type':'application/json', 'Accept':'application/json'},
+      body:JSON.stringify({name, email, message, _replyto:email, _subject:'[포트폴리오] '+name+'님의 메시지', _template:'table'})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok || j.success===false || j.success==='false') throw new Error(j.message||String(r.status));
+    form.reset(); status.textContent='보냈어요. 확인하고 답장드릴게요.'; status.classList.add('ok');
+  }catch(err){
+    status.textContent='보내지 못했어요. 잠시 후 다시 시도하거나 '+CONTACT_TO+' 로 직접 보내 주세요.'; status.classList.add('err');
+  }finally{ btn.disabled=false; btn.textContent='보내기'; }
+}
+function chipGroups(p){
+  const grp=(label,list,cls)=>h('div',{class:'chip-group'}, h('span',{class:'chip-label'},label), h('div',{class:'chips'}, list.map(t=>h('span',{class:'chip'+(cls?' '+cls:'')},techIcon(t),t))));
+  return h('div',{class:'chip-groups'}, grp('언어',p.lang,'lang'), grp('기술',p.stack));
+}
+function statusBar(text){
+  return h('div',{class:'status'}, h('span',null,text), playing ? h('span',{class:'pl'}, '♪ 재생 중 · '+projects[current].title) : null);
+}
+function go(p){ path=p; renderList(); const f=mainEl.querySelector('[aria-selected="true"], button.row'); if(f) f.focus({preventScroll:true}); }
+upBtn.addEventListener('click',()=>{ if(path.length) go(path.slice(0,-1)); });
+
+function renderList(){
+  side.replaceChildren(h('div',{class:'side-h'},'Portfolio'), ...FOLDERS.map(f=>
+    h('button',{type:'button', class:'side-i', 'aria-current': path[0]===f.id?'true':'false', onclick:()=>go([f.id])},
+      ico(f.icon), h('span',null,f.name), h('span',{class:'count'}, f.id==='about'?'':f.count()))));
+  const parts=[{label:'Portfolio', p:[]}];
+  if(path[0]) parts.push({label:FOLDERS.find(f=>f.id===path[0]).name, p:[path[0]]});
+  if(path[1]) parts.push({label:path[1], p:[path[0],path[1]]});
+  crumbs.replaceChildren(...parts.flatMap((pt,k)=>{
+    const b=h('button',{type:'button','aria-current':k===parts.length-1?'page':null, onclick:()=>go(pt.p)}, pt.label);
+    return k ? [h('span',{class:'sep','aria-hidden':'true'},'›'), b] : [b];
+  }));
+  upBtn.disabled = path.length===0;
+
+  const isProj = (path[0]==='projects' || path[0]==='skills') && !!path[1];
+  exEl.classList.toggle('no-preview', !isProj);
+  prevEl.hidden = !isProj;
+  mainEl.replaceChildren();
+  if(path.length===0) renderFolders(FOLDERS.map(f=>({name:f.name, icon:f.icon, kind:f.kind, count:f.count(), open:()=>go([f.id])})));
+  else if(path[0]==='projects' && !path[1]) renderFolders(groups.map(g=>({name:g.name, icon:'folder', kind:'폴더', count:g.count+'개', open:()=>go(['projects',g.name])})));
+  else if(path[0]==='skills' && !path[1]) renderFolders(tags.map(t=>({name:t.name, icon:'folder', tech:t.name, kind:'폴더', count:t.count+'개', open:()=>go(['skills',t.name])})));
+  else if(isProj){
+    const list = projects.map((p,i)=>(path[0]==='projects' ? p.group===path[1] : tagsOf(p).includes(path[1])) ? i : -1).filter(i=>i>=0);
+    if(!list.includes(listSel)) listSel = list.includes(current) ? current : list[0];
+    renderProjects(list); renderPreview();
+  }
+  else if(path[0]==='about') renderAbout();
+  else if(path[0]==='contact') renderContact();
+  else if(path[0]==='mail') renderMail();
+}
+function renderFolders(rows){
+  mainEl.className='main cols-folder';
+  mainEl.append(thead(['이름'],['종류'],['항목','r']),
+    h('div',{class:'rows'}, rows.map(r=>h('button',{type:'button', class:'row', onclick:r.open},
+      h('span',{class:'name'}, (r.tech && techIcon(r.tech)) || ico(r.icon), h('span',{class:'nm'}, h('strong',null,r.name))),
+      h('span',{class:'cell'}, r.kind),
+      h('span',{class:'cell r num'}, r.count)))),
+    statusBar(rows.length+'개 항목'));
+}
+function renderProjects(list){
+  mainEl.className='main cols-proj';
+  mainEl.append(thead(['이름'],['언어','c-stack'],['연도','c-year'],['기간','r']),
+    h('div',{class:'rows', role:'listbox', 'aria-label':'프로젝트'}, list.map(i=>{
+      const p=projects[i];
+      return h('button',{type:'button', class:'row', role:'option', 'data-i':i, 'aria-selected': i===listSel?'true':'false',
+          onclick:()=>selectProject(i), onfocus:()=>selectProject(i)},
+        h('span',{class:'name'}, h('span',{class:'thumb', style:'--h:'+p.hue}, pad(i+1)),
+          h('span',{class:'nm'}, h('strong',null,p.title), h('span',{class:'sub langs'}, p.lang.map(techLabel), p.year ? h('span',null,p.year) : null)),
+          i===current && playing ? eqEl() : null),
+        h('span',{class:'cell c-stack langs'}, p.lang.map(techLabel)),
+        h('span',{class:'cell c-year num'}, p.year||'—'),
+        h('span',{class:'cell r'}, p.period));
+    })),
+    statusBar(list.length+'개 항목'));
+}
+function selectProject(i){
+  if(listSel===i && prevEl.dataset.i===String(i)) return;
+  listSel=i;
+  mainEl.querySelectorAll('[role="option"]').forEach(r=>r.setAttribute('aria-selected', r.dataset.i===String(i)?'true':'false'));
+  renderPreview(true);
+}
+const mqMobile=matchMedia('(max-width:720px)');
+function placePreview(scroll){
+  if(prevEl.hidden) return;
+  if(mqMobile.matches){
+    const row=mainEl.querySelector('[role="option"][aria-selected="true"]');
+    if(!row) return;
+    if(prevEl.previousElementSibling!==row) row.after(prevEl);
+    prevEl.classList.add('inline');
+    if(scroll) row.scrollIntoView({block:'nearest', behavior:reduce?'auto':'smooth'});
+  } else if(prevEl.parentElement!==exEl){
+    exEl.appendChild(prevEl); prevEl.classList.remove('inline');
+  }
+}
+mqMobile.addEventListener('change',()=>placePreview(false));
+function playFromList(i){
+  if(!(i===current && playing)) playTrack(i,true);
+  else if(topS().id!=='now') stack.push({id:'now', sel:0, top:0});
+  dirty=true; setView('player');
+}
+function renderPreview(scroll){
+  const i=listSel, p=projects[i];
+  prevEl.dataset.i=String(i);
+  prevEl.replaceChildren(
+    h('div',{class:'art', style:'--h:'+p.hue, 'aria-hidden':'true'}, pad(i+1)),
+    h('div',null, h('div',{class:'eyebrow'}, `Track ${pad(i+1)} / ${pad(projects.length)}`), h('h2',null,p.title)),
+    h('p',null,p.desc),
+    h('dl',{class:'meta'}, [['분류',p.kind],['연도',p.year||'—'],['기간',p.period]].map(([k,v])=>h('div',null,h('dt',null,k),h('dd',null,v)))),
+    chipGroups(p),
+    h('div',{class:'actions'},
+      projLinks(p)));
+  placePreview(scroll);
+}
+function renderAbout(){
+  mainEl.className='main';
+  mainEl.append(h('article',{class:'doc'},
+    h('div',{class:'eyebrow'},'Liner Notes'), h('h2',null,'About'),
+    aboutText.map(t=>h('p',null,t)),
+    h('dl',{class:'meta'}, aboutMeta.map(([k,v])=>h('div',null,h('dt',null,k),h('dd',null,v))))));
+}
+function renderMail(){
+  mainEl.className='main';
+  mainEl.append(h('article',{class:'doc'},
+    h('div',{class:'eyebrow'},'Contact'), h('h2',null,'메시지 보내기'),
+    h('p',null,'아래에 적어 보내면 '+CONTACT_TO+' 로 바로 전달돼요.'),
+    contactForm('cf')));
+}
+function renderContact(){
+  mainEl.className='main cols-contact';
+  mainEl.append(thead(['이름'],['내용','c-val'],['','r']),
+    h('div',{class:'rows'}, contacts.map(c=>{
+      const action = c.copy
+        ? h('button',{type:'button', class:'mini r', onclick:e=>copyText(c.value, e.currentTarget)}, '복사')
+        : h('span',{class:'r'});
+      return h('div',{class:'row'},
+        h('span',{class:'name'}, ico(c.icon), h('span',{class:'nm'}, h('strong',null,c.label), h('span',{class:'sub'}, c.value))),
+        h('span',{class:'cell c-val'}, h('span',{class:'val'}, c.value)),
+        action);
+    })),
+    statusBar(contacts.length+'개 항목'));
+}
+listEl.addEventListener('keydown',e=>{
+  const row = e.target.closest ? e.target.closest('button.row') : null;
+  if(row && (e.key==='ArrowDown'||e.key==='ArrowUp')){
+    const rows=[...mainEl.querySelectorAll('button.row')], k=rows.indexOf(row)+(e.key==='ArrowDown'?1:-1);
+    if(rows[k]){ rows[k].focus(); e.preventDefault(); }
+  } else if(e.key==='Backspace' && path.length && !e.target.closest('input,textarea')){ e.preventDefault(); go(path.slice(0,-1)); }
+});
+
+/* ---------- full-screen LCD (마우스로 탐색) ---------- */
+const lcd=$('#lcd'), lcdBody=$('#lcd-body'), lcdTitle=$('#lcd-title'), lcdBack=$('#lcd-back'), lcdPlayBtn=$('#lcd-play');
+const P_PLAY='<path d="M7 4v16l13-8z"/>', P_PAUSE='<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>';
+const P_PREV='<path d="M6 5h2v14H6zM20 5v14L9 12z"/>', P_NEXT='<path d="M16 5h2v14h-2zM4 5v14l11-7z"/>';
+function svgEl(inner, cls){ const t=document.createElement('template'); t.innerHTML=`<svg class="${cls||''}" viewBox="0 0 24 24" aria-hidden="true">${inner}</svg>`; return t.content.firstChild; }
+let lcdKey='', lcdSec=-1, lcdToast=false;
+const lcdKeyNow = () => topS().id==='mail' ? 'mail|'+stack.length : [current, playing, stack.length, topS().id, topS().arg||''].join('|');
+function lcdTitleUpdate(){
+  const s=topS(), on=performance.now()<toastUntil;
+  lcdTitle.textContent = on ? toastText : (s.arg || titles[s.id]);
+  lcdTitle.classList.toggle('toast', on);
+  lcdToast=on;
+}
+function renderLcd(focus){
+  const s=topS(), list=items(s);
+  const active=document.activeElement, activeId = active && lcd.contains(active) ? active.id : '';
+  lcdTitleUpdate();
+  lcdBack.style.visibility = stack.length>1 ? 'visible' : 'hidden';
+  lcdPlayBtn.replaceChildren(svgEl(playing?P_PAUSE:P_PLAY,'f'));
+  lcdPlayBtn.setAttribute('aria-label', playing?'일시정지':'재생');
+  const wrap=h('div',{class:'lcd-wrap'});
+  if(list) wrap.append(lcdList(list,s));
+  else if(s.id==='now') wrap.append(lcdNow());
+  else if(s.id==='mail') wrap.append(h('div',{class:'lcd-doc'}, h('div',{class:'eyebrow'},'Contact'), h('h2',null,'메시지 보내기'),
+      h('p',null,'적어 보내면 '+CONTACT_TO+' 로 바로 전달돼요.'), contactForm('lcf')));
+  else wrap.append(lcdAbout());
+  lcdBody.replaceChildren(wrap);
+  lcdKey=lcdKeyNow(); lcdSec=-1; lcdProgress();
+  let f=null;
+  if(activeId) f=document.getElementById(activeId);
+  if(!f && focus){ const on=lcdBody.querySelector('.lcd-row.on'); f = on ? (on.matches('button') ? on : on.querySelector('button')) : lcdBody.querySelector('button'); }
+  if(f) f.focus({preventScroll:true});
+}
+function lcdHover(i){
+  const s=topS(); if(s.sel===i) return;
+  setSel(s,i);
+  lcdBody.querySelectorAll('.lcd-row').forEach(r=>{ const on=r.dataset.i===String(i); r.classList.toggle('on',on); r.setAttribute('aria-selected',on?'true':'false'); });
+}
+function lcdList(list,s){
+  const el=h('div',{class:'lcd-list', role:'listbox', 'aria-label':titles[s.id]||s.arg});
+  list.forEach((it,i)=>{
+    const on=i===s.sel;
+    if(s.id==='contact'){
+      const c=contacts[i];
+      el.append(h('div',{class:'lcd-row'+(on?' on':''), role:'option', 'aria-selected':on?'true':'false', 'data-i':i,
+          tabindex: c.copy ? null : '0', onmouseenter:()=>lcdHover(i), onfocusin:()=>lcdHover(i)},
+        h('span',{class:'t'}, h('span',{class:'l'},c.label), h('small',null,c.value)),
+        c.copy ? h('span',{class:'acts'}, h('button',{type:'button', class:'lcd-pill', onclick:()=>copyText(c.value)}, '복사')) : null));
+      return;
+    }
+    const p = it.idx!=null ? projects[it.idx] : null;
+    const meta = p ? p.period : ((s.id==='skills'||s.id==='projects') ? it.right+'개' : null);
+    el.append(h('button',{type:'button', class:'lcd-row'+(on?' on':''), role:'option', 'aria-selected':on?'true':'false', 'data-i':i,
+        onmouseenter:()=>lcdHover(i), onfocus:()=>lcdHover(i),
+        onclick:()=>{ setSel(s,i); select(); renderLcd(true); }},
+      p ? h('span',{class:'thumb', style:'--h:'+p.hue}, pad(it.idx+1)) : null,
+      h('span',{class:'t'}, h('span',{class:'l'}, (p && it.idx===current && playing ? '♪ ' : '')+it.label), p ? h('small',null,p.lang.join(' · ')+'  ·  '+p.stack.slice(0,3).join(', ')) : null),
+      meta ? h('span',{class:'m'}, meta) : null,
+      it.go ? svgEl('<path d="M9 5l7 7-7 7"/>','chev') : null));
+  });
+  return el;
+}
+function lcdNow(){
+  const p=projects[current];
+  const ctl=(id,label,path,fn,main)=>h('button',{type:'button', id, class:'lcd-ctl'+(main?' main':''), 'aria-label':label, onclick:()=>{ fn(); renderLcd(); }}, svgEl(path));
+  return h('div',{class:'lcd-now'},
+    h('div',{class:'lcd-player'},
+      h('div',{class:'art', style:'--h:'+p.hue, 'aria-hidden':'true'}, pad(current+1)),
+      h('div',{class:'lcd-seek', 'aria-hidden':'true', onclick:e=>{
+          const r=e.currentTarget.getBoundingClientRect();
+          elapsed=Math.max(0,Math.min(0.999,(e.clientX-r.left)/r.width))*runtime(p); dirty=true; lcdSec=-1; lcdProgress(); }},
+        h('div',{class:'lcd-track'}, h('i',{id:'lcd-bar'}))),
+      h('div',{class:'lcd-times'}, h('span',{id:'lcd-el'},'0:00'), h('span',{id:'lcd-rem'},'-0:00')),
+      h('div',{class:'lcd-ctrls'},
+        ctl('lcd-prev','이전 프로젝트',P_PREV,prev),
+        ctl('lcd-pp',playing?'일시정지':'재생',playing?P_PAUSE:P_PLAY,togglePlay,true),
+        ctl('lcd-next','다음 프로젝트',P_NEXT,next))),
+    h('div',{class:'lcd-info'},
+      h('div',{class:'eyebrow'}, `Track ${pad(current+1)} / ${pad(projects.length)}`),
+      h('h2',null,p.title),
+      h('div',{class:'lcd-role'}, metaLine(p)),
+      chipGroups(p),
+      h('p',{class:'lcd-desc'}, p.desc),
+      h('div',{class:'lcd-links'}, projLinks(p))));
+}
+function lcdAbout(){
+  return h('div',{class:'lcd-doc'},
+    h('div',{class:'eyebrow'},'Liner Notes'), h('h2',null,'About'),
+    aboutText.map(t=>h('p',null,t)),
+    h('dl',{class:'meta'}, aboutMeta.map(([k,v])=>h('div',null,h('dt',null,k),h('dd',null,v)))));
+}
+function lcdProgress(){
+  if(!lcdOpen || topS().id!=='now') return;
+  const sec=Math.floor(elapsed); if(sec===lcdSec) return; lcdSec=sec;
+  const total=runtime(projects[current]), bar=$('#lcd-bar');
+  if(!bar) return;
+  bar.style.width=(100*elapsed/total).toFixed(2)+'%';
+  $('#lcd-el').textContent=mmss(elapsed); $('#lcd-rem').textContent='-'+mmss(total-elapsed);
+}
+function screenClip(){
+  scene.updateMatrixWorld();
+  const r=canvas.getBoundingClientRect(); let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  [[-0.92,-0.69],[0.92,-0.69],[-0.92,0.69],[0.92,0.69]].forEach(([x,y])=>{
+    const v=new T.Vector3(x,y,0).applyMatrix4(screen.matrixWorld).project(camera);
+    const px=r.left+(v.x+1)/2*r.width, py=r.top+(1-v.y)/2*r.height;
+    x0=Math.min(x0,px); x1=Math.max(x1,px); y0=Math.min(y0,py); y1=Math.max(y1,py);
+  });
+  const W=innerWidth, H=innerHeight;
+  return `inset(${Math.max(0,y0)}px ${Math.max(0,W-x1)}px ${Math.max(0,H-y1)}px ${Math.max(0,x0)}px round 12px)`;
+}
+function openLcd(){
+  if(lcdOpen) return;
+  lcdOpen=true; fsHover=false; dirty=true;
+  playerEl.inert=true; listEl.inert=true; dock.inert=true;
+  renderLcd();
+  if(!reduce){ lcd.style.transition='none'; lcd.style.clipPath=screenClip(); }
+  lcd.hidden=false;
+  if(!reduce){ void lcd.offsetWidth; lcd.style.transition=''; lcd.style.clipPath='inset(0px 0px 0px 0px round 0px)'; }
+  const on=lcdBody.querySelector('.lcd-row.on'); const f = (on && (on.matches('button') ? on : (on.querySelector('button') || on))) || $('#lcd-close');
+  f.focus({preventScroll:true});
+}
+function closeLcd(){
+  if(!lcdOpen) return;
+  lcdOpen=false; dirty=true;
+  playerEl.inert=false; listEl.inert=false; dock.inert=false;
+  const done=()=>{ if(lcdOpen) return; lcd.hidden=true; lcd.style.clipPath=''; };
+  stage.focus({preventScroll:true});
+  if(reduce){ done(); return; }
+  lcd.style.clipPath=screenClip();
+  setTimeout(done,430);
+}
+$('#lcd-close').addEventListener('click',closeLcd);
+lcdBack.addEventListener('click',()=>{ back(); renderLcd(true); });
+lcdPlayBtn.addEventListener('click',()=>{ togglePlay(); renderLcd(); });
+lcd.addEventListener('keydown',e=>{
+  const k=e.key;
+  if(k==='Escape'){ e.preventDefault(); closeLcd(); return; }
+  if(e.target.closest('input,textarea')) return;   // 입력 중에는 단축키를 쓰지 않음
+  if(k==='Backspace'){ e.preventDefault(); if(stack.length>1){ back(); renderLcd(true); } return; }
+  if(k===' ' && e.target.tagName!=='BUTTON' && e.target.tagName!=='A'){ e.preventDefault(); togglePlay(); renderLcd(); return; }
+  if(k==='ArrowDown'||k==='ArrowUp'){
+    const rows=[...lcdBody.querySelectorAll('.lcd-row')]; if(!rows.length) return;
+    e.preventDefault();
+    const n=Math.max(0,Math.min(rows.length-1,topS().sel+(k==='ArrowDown'?1:-1)));
+    lcdHover(n); const r=rows[n]; (r.matches('button') ? r : (r.querySelector('button') || r)).focus();
+  }
+});
+
+/* ---------- 3D ---------- */
+function fallback(){ stage.innerHTML='<div class="fallback">이 브라우저에서는 3D 플레이어를 불러오지 못했어요.<br>아래 ‘리스트’에서 둘러보세요.</div>'; $('#dock-lcd').hidden=true; dock.querySelector('.dock-sep').hidden=true; placeDock(); }
+if(!window.THREE){ fallback(); return; }
+const T=THREE;
+let renderer;
+try{ renderer=new T.WebGLRenderer({antialias:true, alpha:true}); }catch(e){ fallback(); return; }
+has3D=true;
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+renderer.outputEncoding=T.sRGBEncoding;
+renderer.toneMapping=T.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.05;
+stage.appendChild(renderer.domElement);
+const canvas=renderer.domElement;
+
+const scene=new T.Scene();
+const camera=new T.PerspectiveCamera(30,1,0.1,100);
+camera.position.set(0,0,11);
+
+(function(){
+  const env=new T.Scene();
+  env.add(new T.Mesh(new T.BoxGeometry(12,12,12), new T.MeshBasicMaterial({color:0x26292f, side:T.BackSide})));
+  const panel=(w,hh,c,p)=>{ const m=new T.Mesh(new T.PlaneGeometry(w,hh), new T.MeshBasicMaterial({color:c, side:T.DoubleSide})); m.position.set(p[0],p[1],p[2]); m.lookAt(0,0,0); env.add(m); };
+  panel(7,1.4,0xffffff,[0,5,2]); panel(1.4,7,0xdfe7ff,[-5,0,3]); panel(1.2,7,0xffffff,[5,1,-1]); panel(6,1,0xffe6d2,[0,-5,2]); panel(3,3,0x9aa3b5,[0,0,6]);
+  const pm=new T.PMREMGenerator(renderer);
+  scene.environment=pm.fromScene(env,0.03).texture;
+  pm.dispose();
+})();
+const keyL=new T.DirectionalLight(0xffffff,0.9); keyL.position.set(-3,5,6); scene.add(keyL);
+scene.add(new T.HemisphereLight(0xffffff,0x445066,0.35));
+
+const lin = css => new T.Color().setStyle(css.trim()).convertSRGBToLinear();
+function rrShape(w,hh,r){
+  const s=new T.Shape(), x=-w/2, y=-hh/2;
+  s.moveTo(x+r,y); s.lineTo(x+w-r,y); s.absarc(x+w-r,y+r,r,-Math.PI/2,0,false);
+  s.lineTo(x+w,y+hh-r); s.absarc(x+w-r,y+hh-r,r,0,Math.PI/2,false);
+  s.lineTo(x+r,y+hh); s.absarc(x+r,y+hh-r,r,Math.PI/2,Math.PI,false);
+  s.lineTo(x,y+r); s.absarc(x+r,y+r,r,Math.PI,Math.PI*1.5,false);
+  return s;
+}
+
+const device=new T.Group(); scene.add(device);
+const W=2.4, H=4.0, FZ=0.25;
+const bodyGeo=new T.ExtrudeGeometry(rrShape(W,H,0.34),{depth:0.3, bevelEnabled:true, bevelThickness:0.1, bevelSize:0.1, bevelSegments:10, curveSegments:28});
+bodyGeo.center();
+device.add(new T.Mesh(bodyGeo, new T.MeshStandardMaterial({color:0xd9dce0, metalness:1, roughness:0.16})));
+const frontMat=new T.MeshPhysicalMaterial({roughness:0.28, clearcoat:1, clearcoatRoughness:0.06});
+const front=new T.Mesh(new T.ShapeGeometry(rrShape(W,H,0.34),28), frontMat);
+front.position.z=FZ+0.002; device.add(front);
+
+const SCR_Y=0.98;
+const bezel=new T.Mesh(new T.ShapeGeometry(rrShape(2.0,1.56,0.09),12), new T.MeshStandardMaterial({color:0x0b0c0e, roughness:0.4}));
+bezel.position.set(0,SCR_Y,FZ+0.004); device.add(bezel);
+const SW=640, SH=480, HEAD=60, ROWH=(SH-HEAD)/ROWS;
+const sc=document.createElement('canvas'); sc.width=SW; sc.height=SH;
+const g=sc.getContext('2d');
+const screenTex=new T.CanvasTexture(sc); screenTex.encoding=T.sRGBEncoding; screenTex.anisotropy=renderer.capabilities.getMaxAnisotropy();
+const screen=new T.Mesh(new T.PlaneGeometry(1.84,1.38), new T.MeshBasicMaterial({map:screenTex, toneMapped:false}));
+screen.position.set(0,SCR_Y,FZ+0.006); device.add(screen);
+const glass=new T.Mesh(new T.ShapeGeometry(rrShape(2.0,1.56,0.09),12), new T.MeshStandardMaterial({color:0xffffff, transparent:true, opacity:0.07, roughness:0.05, metalness:0.2}));
+glass.position.set(0,SCR_Y,FZ+0.008); device.add(glass);
+
+const WY=-0.98, R=0.84, RC=0.3;
+const wheelGroup=new T.Group(); wheelGroup.position.set(0,WY,FZ+0.002); device.add(wheelGroup);
+const recess=new T.Mesh(new T.CircleGeometry(R+0.025,128), new T.MeshStandardMaterial({color:0x000000, transparent:true, opacity:0.12, roughness:1}));
+recess.position.z=0.002; wheelGroup.add(recess);
+const wc=document.createElement('canvas'); wc.width=wc.height=512;
+const wctx=wc.getContext('2d');
+const wheelTex=new T.CanvasTexture(wc); wheelTex.encoding=T.sRGBEncoding; wheelTex.anisotropy=renderer.capabilities.getMaxAnisotropy();
+const wheel=new T.Mesh(new T.CircleGeometry(R,128), new T.MeshPhysicalMaterial({map:wheelTex, roughness:0.62, clearcoat:0.25, clearcoatRoughness:0.4}));
+wheel.position.z=0.005; wheelGroup.add(wheel);
+const touchDot=new T.Mesh(new T.CircleGeometry(0.15,40), new T.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0, depthWrite:false}));
+touchDot.position.z=0.007; wheelGroup.add(touchDot);
+const centerMat=new T.MeshPhysicalMaterial({roughness:0.3, clearcoat:1, clearcoatRoughness:0.08});
+const centerBtn=new T.Mesh(new T.CylinderGeometry(RC,RC,0.04,72), centerMat);
+centerBtn.rotation.x=Math.PI/2; centerBtn.position.z=0.02; wheelGroup.add(centerBtn);
+
+function drawWheel(base,label){
+  const c=wctx, s=512;
+  c.fillStyle=base; c.fillRect(0,0,s,s);
+  const gr=c.createRadialGradient(s/2,s*0.3,10,s/2,s/2,s/2); gr.addColorStop(0,'rgba(255,255,255,.10)'); gr.addColorStop(1,'rgba(0,0,0,.06)');
+  c.fillStyle=gr; c.fillRect(0,0,s,s);
+  c.fillStyle=label; c.font='700 40px "IBM Plex Sans","IBM Plex Sans KR",system-ui,sans-serif';
+  c.textAlign='center'; c.textBaseline='middle'; c.fillText('MENU',s/2,64);
+  const tri=(x,y,dir,hh)=>{ c.beginPath(); c.moveTo(x,y-hh/2); c.lineTo(x+dir*hh*0.85,y); c.lineTo(x,y+hh/2); c.closePath(); c.fill(); };
+  tri(424,256,1,28); tri(444,256,1,28); c.fillRect(468,242,5,28);
+  tri(88,256,-1,28); tri(68,256,-1,28); c.fillRect(39,242,5,28);
+  tri(226,448,1,30); c.fillRect(262,434,7,28); c.fillRect(276,434,7,28);
+  wheelTex.needsUpdate=true;
+}
+
+const shc=document.createElement('canvas'); shc.width=256; shc.height=64;
+const shx=shc.getContext('2d'); const sg=shx.createRadialGradient(128,32,2,128,32,128);
+sg.addColorStop(0,'rgba(0,0,0,.42)'); sg.addColorStop(1,'rgba(0,0,0,0)'); shx.fillStyle=sg; shx.fillRect(0,0,256,64);
+const shadow=new T.Mesh(new T.PlaneGeometry(3.4,0.8), new T.MeshBasicMaterial({map:new T.CanvasTexture(shc), transparent:true, depthWrite:false}));
+shadow.position.set(0,-2.55,-0.6); scene.add(shadow);
+
+function applyTheme(){
+  const cs=getComputedStyle(document.documentElement);
+  const f=cs.getPropertyValue('--dev-front');
+  frontMat.color.copy(lin(f)); centerMat.color.copy(lin(f));
+  touchDot.material.color.set(lin(f).getHSL({}).l<0.2 ? 0xffffff : 0x000000);
+  drawWheel(cs.getPropertyValue('--dev-wheel').trim(), cs.getPropertyValue('--dev-label').trim());
+}
+applyTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyTheme);
+new MutationObserver(applyTheme).observe(document.documentElement,{attributes:true, attributeFilter:['data-theme']});
+
+/* ---------- screen drawing ---------- */
+const FONT='"IBM Plex Sans KR","IBM Plex Sans",system-ui,sans-serif', MONO='"IBM Plex Mono",ui-monospace,monospace';
+function rr(x,y,w,hh,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+hh,r); g.arcTo(x+w,y+hh,x,y+hh,r); g.arcTo(x,y+hh,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+function fit(t,max){ if(g.measureText(t).width<=max) return t; let s=t; while(s.length>1 && g.measureText(s+'…').width>max) s=s.slice(0,-1); return s+'…'; }
+function wrap(text,max,lines){
+  const words=text.split(' '), out=[]; let line='';
+  for(const w of words){ const tryL=line?line+' '+w:w; if(g.measureText(tryL).width<=max) line=tryL; else { if(line) out.push(line); line=w; } }
+  if(line) out.push(line);
+  if(out.length>lines){ const keep=out.slice(0,lines); keep[lines-1]=fit(out.slice(lines-1).join(' '),max); return keep; }
+  return out.map(l=>fit(l,max));
+}
+const FSX0=566, FSX1=632;   // 화면 오른쪽 위 '크게 보기' 아이콘 영역
+function header(title){
+  const gr=g.createLinearGradient(0,0,0,HEAD); gr.addColorStop(0,'#FBFBFC'); gr.addColorStop(1,'#D3D8DE');
+  g.fillStyle=gr; g.fillRect(0,0,SW,HEAD); g.fillStyle='#8D95A0'; g.fillRect(0,HEAD-2,SW,2);
+  const t = performance.now()<toastUntil ? toastText : title;
+  g.fillStyle = t===title ? '#1A1D22' : '#2361D1'; g.font=`600 29px ${FONT}`; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText(fit(t,360),SW/2,HEAD/2+1);
+  g.fillStyle='#2A66D2';
+  if(playing){ g.beginPath(); g.moveTo(22,18); g.lineTo(42,30); g.lineTo(22,42); g.closePath(); g.fill(); }
+  else { g.fillRect(22,19,7,22); g.fillRect(35,19,7,22); }
+  // battery
+  g.strokeStyle='#4A515C'; g.lineWidth=2; rr(504,20,42,21,4); g.stroke(); g.fillStyle='#4A515C'; g.fillRect(547,26,4,9);
+  const bg=g.createLinearGradient(0,23,0,38); bg.addColorStop(0,'#9EE27C'); bg.addColorStop(1,'#3B9F2B'); g.fillStyle=bg; g.fillRect(507,23,28,15);
+  // full-screen icon
+  rr(FSX0,7,FSX1-FSX0,HEAD-14,9);
+  if(fsHover){ const hg=g.createLinearGradient(0,7,0,HEAD-7); hg.addColorStop(0,'#64A8F5'); hg.addColorStop(1,'#2361D1'); g.fillStyle=hg; g.fill(); }
+  else { g.fillStyle='rgba(0,0,0,.07)'; g.fill(); g.strokeStyle='rgba(0,0,0,.18)'; g.lineWidth=1.5; g.stroke(); }
+  const cx=(FSX0+FSX1)/2, cy=HEAD/2, a=13, k=9;
+  g.beginPath();
+  g.moveTo(cx-a,cy-a+k); g.lineTo(cx-a,cy-a); g.lineTo(cx-a+k,cy-a);
+  g.moveTo(cx+a-k,cy-a); g.lineTo(cx+a,cy-a); g.lineTo(cx+a,cy-a+k);
+  g.moveTo(cx+a,cy+a-k); g.lineTo(cx+a,cy+a); g.lineTo(cx+a-k,cy+a);
+  g.moveTo(cx-a+k,cy+a); g.lineTo(cx-a,cy+a); g.lineTo(cx-a,cy+a-k);
+  g.strokeStyle=fsHover?'#FFFFFF':'#2F353E'; g.lineWidth=4; g.lineCap='round'; g.lineJoin='round'; g.stroke();
+}
+function drawList(list,s){
+  g.fillStyle='#FFFFFF'; g.fillRect(0,HEAD,SW,SH-HEAD);
+  const sw = list.length>ROWS ? 16 : 0;
+  for(let r=0;r<ROWS;r++){
+    const i=s.top+r; if(i>=list.length) break;
+    const it=list[i], y=HEAD+r*ROWH, on=i===s.sel, cy=y+ROWH/2+1;
+    if(on){ const gr=g.createLinearGradient(0,y,0,y+ROWH); gr.addColorStop(0,'#64A8F5'); gr.addColorStop(1,'#2361D1'); g.fillStyle=gr; g.fillRect(0,y,SW-sw,ROWH); }
+    let rw=0; const rx=SW-sw-(it.go?50:22);
+    if(it.right){ g.font=`500 25px ${/[^\u0000-\u007F]/.test(it.right)?FONT:MONO}`; rw=g.measureText(it.right).width+20; g.textAlign='right'; g.fillStyle=on?'rgba(255,255,255,.9)':'#555D69'; g.fillText(it.right,rx,cy); }
+    g.font=`600 32px ${FONT}`; g.textAlign='left'; g.fillStyle=on?'#FFFFFF':'#15181D';
+    const mark = it.idx===current && playing ? '♪ ' : '';
+    let lx=24; const tim=it.tech && techImg(it.tech);
+    if(tim){ if(on){ g.fillStyle='rgba(255,255,255,.92)'; rr(lx-4,cy-21,42,42,9); g.fill(); g.fillStyle='#FFFFFF'; } g.drawImage(tim,lx+1,cy-16,32,32); lx+=48; }
+    g.fillText(fit(mark+it.label, rx-lx-rw-8),lx,cy);
+    if(it.go){ g.strokeStyle=on?'#FFFFFF':'#9AA1AB'; g.lineWidth=4; g.lineCap='round'; g.beginPath(); const cx=SW-sw-30; g.moveTo(cx-7,cy-11); g.lineTo(cx+4,cy); g.lineTo(cx-7,cy+11); g.stroke(); }
+  }
+  if(sw){
+    g.fillStyle='#E4E7EB'; g.fillRect(SW-sw,HEAD,sw,SH-HEAD);
+    const th=(SH-HEAD)*ROWS/list.length, ty=HEAD+(SH-HEAD-th)*s.top/(list.length-ROWS);
+    const gr=g.createLinearGradient(SW-sw,0,SW,0); gr.addColorStop(0,'#AEB5BF'); gr.addColorStop(1,'#7F8794');
+    g.fillStyle=gr; rr(SW-sw+3,ty+3,sw-6,th-6,5); g.fill();
+  }
+}
+function art(p,i,x,y,s){
+  g.save(); rr(x,y,s,s,10); g.clip();
+  const gr=g.createLinearGradient(x,y,x+s,y+s); gr.addColorStop(0,`hsl(${p.hue},72%,58%)`); gr.addColorStop(1,`hsl(${p.hue+38},70%,26%)`);
+  g.fillStyle=gr; g.fillRect(x,y,s,s);
+  g.strokeStyle='rgba(255,255,255,.14)'; g.lineWidth=1.5;
+  for(let k=1;k<9;k++){ g.beginPath(); g.arc(x+s*0.72,y+s*0.3,k*s*0.09,0,Math.PI*2); g.stroke(); }
+  g.fillStyle='rgba(255,255,255,.95)'; g.font=`700 ${Math.round(s*0.36)}px "Familjen Grotesk",${FONT}`; g.textAlign='left'; g.textBaseline='alphabetic';
+  g.fillText(pad(i+1),x+s*0.08,y+s*0.9);
+  g.restore();
+}
+function drawNow(){
+  const p=projects[current];
+  g.fillStyle='#FFFFFF'; g.fillRect(0,HEAD,SW,SH-HEAD);
+  g.textBaseline='middle'; g.textAlign='left';
+  if(nowInfo){
+    g.fillStyle='#15181D'; g.font=`700 31px ${FONT}`; g.fillText(fit(p.title,SW-48),24,HEAD+40);
+    g.fillStyle='#22272E'; g.font=`500 29px ${FONT}`;
+    wrap(p.desc,SW-48,6).forEach((l,k)=>g.fillText(l,24,HEAD+92+k*43));
+    g.fillStyle='#2361D1'; g.font=`600 25px ${FONT}`; g.fillText(fit(p.lang.join(' · '),SW-48),24,SH-32);
+    return;
+  }
+  g.fillStyle='#555D69'; g.font=`500 24px ${MONO}`; g.fillText(`${current+1} of ${projects.length}`,24,HEAD+30);
+  art(p,current,24,HEAD+58,168);
+  g.textBaseline='middle'; g.textAlign='left';
+  const x=212, max=SW-x-24;
+  g.fillStyle='#15181D'; g.font=`700 33px ${FONT}`;
+  const tl=wrap(p.title,max,2); tl.forEach((l,k)=>g.fillText(l,x,HEAD+80+k*40));
+  const y=HEAD+80+tl.length*40+10;
+  g.fillStyle='#2361D1'; g.font=`700 27px ${FONT}`;
+  let lx=x, line=0;
+  p.lang.forEach(t=>{
+    const im=techImg(t), w=(im?34:0)+g.measureText(t).width;
+    if(lx>x && lx+w>x+max){ if(line===1) return; line++; lx=x; }
+    const ly=y+line*35;
+    if(im){ g.drawImage(im,lx,ly-14,28,28); lx+=34; }
+    g.fillText(t,lx,ly); lx+=g.measureText(t).width+20;
+  });
+  const ll={length:line+1};
+  g.fillStyle='#3E4550'; g.font=`500 23px ${FONT}`;
+  wrap(p.stack.join(' · '),max,3-ll.length).forEach((l,k)=>g.fillText(l,x,y+ll.length*35+4+k*31));
+  const by=SH-86, total=runtime(p), f=Math.min(1,elapsed/total);
+  rr(24,by,SW-48,18,9); g.fillStyle='#E3E7EC'; g.fill(); g.strokeStyle='#B6BDC7'; g.lineWidth=1.5; g.stroke();
+  if(f>0){ g.save(); rr(24,by,SW-48,18,9); g.clip(); const gr=g.createLinearGradient(0,by,0,by+18); gr.addColorStop(0,'#7DB6F7'); gr.addColorStop(1,'#2361D1'); g.fillStyle=gr; g.fillRect(24,by,(SW-48)*f,18); g.restore(); }
+  g.font=`500 25px ${MONO}`; g.fillStyle='#2D333C'; g.textAlign='left'; g.fillText(mmss(elapsed),24,by+48);
+  g.textAlign='right'; g.fillText('-'+mmss(total-elapsed),SW-24,by+48);
+}
+function drawAbout(){
+  g.fillStyle='#FFFFFF'; g.fillRect(0,HEAD,SW,SH-HEAD);
+  g.textAlign='left'; g.textBaseline='middle'; let y=HEAD+46;
+  g.font=`500 29px ${FONT}`; g.fillStyle='#15181D';
+  aboutText.forEach(para=>{ wrap(para,SW-56,3).forEach(l=>{ g.fillText(l,28,y); y+=43; }); y+=12; });
+  g.font=`600 25px ${FONT}`; g.fillStyle='#2361D1';
+  g.fillText(fit(aboutMeta.map(m=>m[0]+' '+m[1]).join(' · '),SW-56),28,Math.min(y+6,SH-30));
+}
+function drawMail(){
+  g.fillStyle='#FFFFFF'; g.fillRect(0,HEAD,SW,SH-HEAD);
+  g.textAlign='left'; g.textBaseline='middle';
+  g.fillStyle='#15181D'; g.font=`700 33px ${FONT}`; g.fillText('메시지 보내기',28,HEAD+56);
+  g.fillStyle='#2D333C'; g.font=`500 27px ${FONT}`;
+  wrap('가운데 버튼을 누르면 화면이 크게 열리고, 이름·이메일·내용을 적어 바로 보낼 수 있어요.',SW-56,4).forEach((l,k)=>g.fillText(l,28,HEAD+120+k*40));
+  const bx=28, by=SH-96, bw=SW-56, bh=60;
+  rr(bx,by,bw,bh,12); const gr=g.createLinearGradient(0,by,0,by+bh); gr.addColorStop(0,'#64A8F5'); gr.addColorStop(1,'#2361D1'); g.fillStyle=gr; g.fill();
+  g.fillStyle='#FFFFFF'; g.font=`700 27px ${FONT}`; g.textAlign='center'; g.fillText('● 가운데 버튼 → 작성하기',SW/2,by+bh/2+1);
+}
+function drawScreen(){
+  const s=topS();
+  header(s.arg || titles[s.id]);
+  const list=items(s);
+  if(list) drawList(list,s); else if(s.id==='now') drawNow(); else if(s.id==='mail') drawMail(); else drawAbout();
+  const gl=g.createLinearGradient(0,0,SW*0.6,SH); gl.addColorStop(0,'rgba(255,255,255,.16)'); gl.addColorStop(0.45,'rgba(255,255,255,0)');
+  g.fillStyle=gl; g.fillRect(0,0,SW,SH);
+  screenTex.needsUpdate=true; dirty=false;
+}
+if(document.fonts){ Promise.all([
+  document.fonts.load('600 26px "IBM Plex Sans KR"','가나다'), document.fonts.load('500 20px "IBM Plex Mono"'),
+  document.fonts.load('700 40px "Familjen Grotesk"'), document.fonts.load('700 40px "IBM Plex Sans KR"','MENU')
+ ]).then(()=>{ dirty=true; applyTheme(); }).catch(()=>{}); }
+
+/* ---------- input ---------- */
+const ray=new T.Raycaster(), ndc=new T.Vector2(), ptr={x:0,y:0}, ptrS={x:0,y:0};
+const _n=new T.Vector3(), _p=new T.Vector3(), _q=new T.Quaternion(), _hit=new T.Vector3(), plane=new T.Plane();
+function wheelLocal(e){
+  const r=canvas.getBoundingClientRect();
+  ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ndc,camera); wheelGroup.updateWorldMatrix(true,false);
+  _n.set(0,0,1).applyQuaternion(wheelGroup.getWorldQuaternion(_q));
+  plane.setFromNormalAndCoplanarPoint(_n, wheelGroup.getWorldPosition(_p));
+  if(!ray.ray.intersectPlane(plane,_hit)) return null;
+  const l=wheelGroup.worldToLocal(_hit);
+  return {r:Math.hypot(l.x,l.y), a:Math.atan2(l.y,l.x)};
+}
+function onFsIcon(e){
+  const r=canvas.getBoundingClientRect();
+  ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ndc,camera);
+  const hit=ray.intersectObject(screen,false)[0];
+  if(!hit || !hit.uv) return false;
+  return hit.uv.x*SW >= FSX0-10 && (1-hit.uv.y)*SH <= HEAD+8;
+}
+let mode=null, lastA=0, downA=0, acc=0, travel=0, lastX=0, lastY=0, dragYaw=0, dragPitch=0, wheelAcc=0;
+const press={center:0, tx:0, ty:0, dot:0, dotA:0};
+canvas.addEventListener('pointerdown',e=>{
+  if(onFsIcon(e)){ mode='fs'; try{ canvas.setPointerCapture(e.pointerId); }catch(err){} return; }
+  const w=wheelLocal(e);
+  if(w && w.r<RC){ mode='center'; press.center=1; }
+  else if(w && w.r<R+0.02){ mode='wheel'; lastA=downA=w.a; acc=0; travel=0; press.dot=1; press.dotA=w.a; }
+  else { mode='orbit'; lastX=e.clientX; lastY=e.clientY; canvas.style.cursor='grabbing'; }
+  try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+  stage.focus({preventScroll:true});
+});
+canvas.addEventListener('pointermove',e=>{
+  if(!mode){ const r=canvas.getBoundingClientRect(); ptr.x=((e.clientX-r.left)/r.width)*2-1; ptr.y=((e.clientY-r.top)/r.height)*2-1; }
+  if(mode==='wheel'){
+    const w=wheelLocal(e); if(!w) return;
+    let d=w.a-lastA; if(d>Math.PI) d-=Math.PI*2; if(d<-Math.PI) d+=Math.PI*2;
+    lastA=w.a; acc+=d; travel+=Math.abs(d); press.dotA=w.a;
+    const step=Math.PI/8;
+    while(acc<=-step){ scroll(1); acc+=step; }
+    while(acc>=step){ scroll(-1); acc-=step; }
+  } else if(mode==='orbit'){
+    dragYaw+=(e.clientX-lastX)*0.009; dragPitch=Math.max(-0.6,Math.min(0.6,dragPitch+(e.clientY-lastY)*0.006));
+    lastX=e.clientX; lastY=e.clientY;
+  } else if(e.pointerType==='mouse' && !mode){
+    const over=onFsIcon(e); if(over!==fsHover){ fsHover=over; dirty=true; }
+    const w=wheelLocal(e); canvas.style.cursor = over || (w && w.r<R) ? 'pointer' : 'grab';
+  }
+});
+function endPointer(e){
+  if(mode==='fs'){ mode=null; if(onFsIcon(e)) openLcd(); return; }
+  if(mode==='center'){ press.center=0; select(); }
+  else if(mode==='wheel' && travel<0.3){
+    const deg=downA*180/Math.PI;
+    if(deg>45&&deg<135){ press.ty=-1; back(); }
+    else if(deg<-45&&deg>-135){ press.ty=1; togglePlay(); }
+    else if(Math.abs(deg)>=135){ press.tx=-1; prev(); }
+    else { press.tx=1; next(); }
+  }
+  if(mode==='orbit') canvas.style.cursor='grab';
+  press.dot=0; mode=null;
+}
+canvas.addEventListener('pointerup',endPointer);
+canvas.addEventListener('pointercancel',()=>{ press.center=0; press.dot=0; mode=null; });
+canvas.addEventListener('pointerleave',()=>{ if(!mode){ ptr.x=0; ptr.y=0; } if(fsHover){ fsHover=false; dirty=true; } });
+canvas.addEventListener('wheel',e=>{
+  const w=wheelLocal(e); if(!w || w.r>R+0.3) return;
+  e.preventDefault(); wheelAcc+=e.deltaY;
+  while(wheelAcc>50){ scroll(1); wheelAcc-=50; }
+  while(wheelAcc<-50){ scroll(-1); wheelAcc+=50; }
+},{passive:false});
+stage.addEventListener('keydown',e=>{
+  const k=e.key; let handled=true;
+  if(k==='ArrowDown') scroll(1); else if(k==='ArrowUp') scroll(-1);
+  else if(k==='Enter'||k==='ArrowRight'){ press.center=1; setTimeout(()=>press.center=0,120); select(); }
+  else if(k==='Escape'||k==='ArrowLeft'||k==='Backspace'){ press.ty=-1; back(); }
+  else if(k===' '){ press.ty=1; togglePlay(); }
+  else if(k==='f'||k==='F') openLcd();
+  else handled=false;
+  if(handled) e.preventDefault();
+});
+
+function resize(){
+  const w=stage.clientWidth, hh=stage.clientHeight; if(!w||!hh) return;
+  renderer.setSize(w,hh,false); camera.aspect=w/hh;
+  const fitH=Math.max(5.9, 3.3/camera.aspect);   // 세로 5.9 또는 기기 가로 폭 기준
+  camera.position.z=fitH/2/Math.tan(camera.fov*Math.PI/360);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage); resize();
+let visible=true;
+new IntersectionObserver(es=>{ visible=es[0].isIntersecting; }).observe(stage);
+
+/* ---------- loop ---------- */
+let last=performance.now(), clock=0, introT=reduce?1:0, lastSec=-1, toastOn=false;
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+
+  if(playing){
+    elapsed+=dt;
+    if(elapsed>=runtime(projects[current])) next();
+    const sec=Math.floor(elapsed); if(sec!==lastSec){ lastSec=sec; if(topS().id==='now') dirty=true; }
+  }
+  if(lcdOpen){
+    if(lcdKeyNow()!==lcdKey) renderLcd();
+    lcdProgress();
+    if((now<toastUntil)!==lcdToast) lcdTitleUpdate();
+    return;
+  }
+  if(!visible) return;
+  clock+=dt;
+  const amb=reduce?0:1;
+  introT=Math.min(1,introT+dt/2.0); const e=1-Math.pow(1-introT,4);
+  // 마우스를 부드럽게 따라가기만 하고, 제자리 흔들림·박자 튕김은 없음
+  const k=1-Math.exp(-dt*4); ptrS.x+=(ptr.x-ptrS.x)*k; ptrS.y+=(ptr.y-ptrS.y)*k;
+  if(mode!=='orbit'){ const d=Math.exp(-dt*3); dragYaw*=d; dragPitch*=d; }
+  // 임계 감쇠 스프링: 돌았다가 튕기지 않고 그대로 제자리로
+  spinVel += (-spin*40 - spinVel*12.65)*dt; spin += spinVel*dt;
+
+  device.rotation.y = -(1-e)*Math.PI + ptrS.x*0.22*amb + dragYaw + spin*amb;
+  device.rotation.x = ptrS.y*0.12*amb + dragPitch;
+  device.rotation.z = 0;
+  device.position.y = -(1-e)*0.9;
+  shadow.scale.x = 1-device.position.y*0.15; shadow.material.opacity = 0.9-device.position.y*0.3;
+
+  const pk=Math.min(1,dt*14);
+  centerBtn.position.z += ((0.02-0.014*press.center)-centerBtn.position.z)*pk;
+  wheelGroup.rotation.y += (press.tx*0.07-wheelGroup.rotation.y)*pk;
+  wheelGroup.rotation.x += (-press.ty*0.07-wheelGroup.rotation.x)*pk;
+  press.tx*=Math.pow(0.0005,dt); press.ty*=Math.pow(0.0005,dt);
+  const dm=touchDot.material; dm.opacity += ((press.dot?0.12:0)-dm.opacity)*pk;
+  const mr=(R+RC)/2; touchDot.position.x=Math.cos(press.dotA)*mr; touchDot.position.y=Math.sin(press.dotA)*mr;
+
+  const tOn = now<toastUntil; if(tOn!==toastOn){ toastOn=tOn; dirty=true; }
+  if(dirty) drawScreen();
+  renderer.render(scene,camera);
+}
+drawScreen();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
