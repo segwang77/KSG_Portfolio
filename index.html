@@ -271,6 +271,18 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .lcd-doc{display:flex;flex-direction:column;gap:18px}
 .lcd-doc p{margin:0;font-size:20px;line-height:1.8;max-width:56ch}
 #lcd .meta{border-color:var(--lcd-line);max-width:560px}
+.cflow-wrap{margin-bottom:22px}
+.cflow{--cw:230px;--g1:180px;--g2:64px;position:relative;height:calc(var(--cw) + 84px);perspective:1100px;background:#0B0C0E;border-radius:16px;overflow:hidden}
+.cf-item{position:absolute;left:50%;top:28px;width:var(--cw);aspect-ratio:1/1;cursor:pointer;transition:transform .5s cubic-bezier(.2,.75,.2,1),opacity .3s;
+  -webkit-box-reflect:below 4px linear-gradient(transparent 62%,rgba(255,255,255,.26))}
+.cf-item img{display:block;width:100%;height:100%;border-radius:4px;user-select:none;-webkit-user-drag:none}
+.cf-item::after{content:"";position:absolute;inset:0;border-radius:4px;background:rgba(0,0,0,.4);transition:opacity .4s}
+.cf-item.center::after{opacity:0}
+.cf-cap{display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:14px;text-align:center}
+.cf-cap strong{font-size:22px;font-weight:700}
+.cf-cap span{font-size:15px;color:var(--lcd-muted)}
+@media (max-width:720px){ .cflow{--cw:160px;--g1:118px;--g2:40px} }
+@media (prefers-reduced-motion:reduce){ .cf-item{transition:none} }
 #lcd .meta dt{font-size:13.5px;color:var(--lcd-muted)}
 #lcd .meta dd{font-size:17px}
 @media (max-width:720px){
@@ -350,6 +362,7 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
   <button type="button" id="dock-lcd" title="기기 화면을 크게 열어 마우스로 탐색 (F)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>크게 보기</span></button>
   <span class="dock-sep" aria-hidden="true"></span>
   <button type="button" id="dock-theme" class="icon-only" aria-label="테마: 시스템 설정"><svg viewBox="0 0 24 24" aria-hidden="true"></svg></button>
+  <button type="button" id="dock-sound" class="icon-only" aria-pressed="true" aria-label="클릭 소리·진동"><svg viewBox="0 0 24 24" aria-hidden="true"></svg></button>
 </nav>
 
 <div id="lcd" role="dialog" aria-modal="true" aria-label="플레이어 화면 크게 보기" hidden>
@@ -435,6 +448,8 @@ let spin=0, spinVel=0;
 let stack=[{id:'main', sel:0, top:0}];
 const ROWS=6;
 const topS = () => stack[stack.length-1];
+let booting=false, bootT=0; const BOOT_LEN = reduce ? 0.7 : 2.4;   // 부팅 화면 (3D가 준비되면 시작)
+function isCF(s){ return s.id==='group' || s.id==='genre'; }       // 프로젝트 목록은 Cover Flow로 보여줌
 
 function items(s){
   switch(s.id){
@@ -454,6 +469,7 @@ function items(s){
 const titles = {main:'Portfolio', projects:'Projects', skills:'Skills', about:'About', contact:'Profile', mail:'Contact', now:'프로젝트'};
 
 function scroll(d){
+  if(booting) return;
   const s=topS(), list=items(s);
   if(s.id==='now') return;
   if(!list) return;
@@ -462,9 +478,11 @@ function scroll(d){
   s.sel=n;
   if(s.sel<s.top) s.top=s.sel;
   if(s.sel>=s.top+ROWS) s.top=s.sel-ROWS+1;
-  dirty=true;
+  dirty=true; click('tick');
 }
 function select(){
+  if(booting) return;
+  click('press');
   const s=topS(), list=items(s);
   if(!list){ if(s.id==='now'){ nowInfo=!nowInfo; dirty=true; } else if(s.id==='mail' && has3D){ openLcd(); } return; }
   const it=list[s.sel];
@@ -472,7 +490,7 @@ function select(){
   else if(it.act) it.act();
   dirty=true;
 }
-function back(){ if(stack.length>1){ stack.pop(); nowInfo=false; dirty=true; } }
+function back(){ if(booting) return; if(stack.length>1){ click('press'); stack.pop(); nowInfo=false; dirty=true; } }
 function togglePlay(){ /* 재생 기능 없음 */ }
 function playTrack(i, open){
   const dir = i>current ? 1 : -1;
@@ -489,6 +507,38 @@ function copyText(t, btn){
   const ok=()=>{ toast('복사됨'); if(btn){ btn.textContent='복사됨'; setTimeout(()=>btn.textContent='복사',1500); } };
   const fail=()=>toast('복사할 수 없어요');
   try{ navigator.clipboard.writeText(t).then(ok,fail); }catch(e){ fail(); }
+}
+
+/* ---------- 클릭음 + 진동 (하단 바에서 끄고 켤 수 있음) ---------- */
+let soundOn=true;
+try{ soundOn = localStorage.getItem('ksg-sound')!=='off'; }catch(e){}
+let actx=null, clickBuf=null;
+function audioReady(){
+  if(!soundOn) return null;
+  try{
+    if(!actx){
+      const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null;
+      actx=new AC();
+      const len=Math.floor(actx.sampleRate*0.03); clickBuf=actx.createBuffer(1,len,actx.sampleRate);
+      const d=clickBuf.getChannelData(0); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,7);
+    }
+    if(actx.state==='suspended') actx.resume();
+  }catch(e){ return null; }
+  return actx;
+}
+function click(kind){
+  if(!soundOn) return;
+  const press = kind==='press';
+  const a=audioReady();
+  if(a && a.state==='running' && clickBuf){
+    try{
+      const src=a.createBufferSource(); src.buffer=clickBuf;
+      const bp=a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=press?2300:3900; bp.Q.value=1.1;
+      const gn=a.createGain(); gn.gain.value=press?0.55:0.35;
+      src.connect(bp); bp.connect(gn); gn.connect(a.destination); src.start();
+    }catch(e){}
+  }
+  if(navigator.vibrate){ try{ navigator.vibrate(press?12:5); }catch(e){} }
 }
 
 /* ---------- views ---------- */
@@ -525,6 +575,18 @@ $('#dock-lcd').addEventListener('click',()=>{
   else { setView('player'); setTimeout(openLcd, reduce?30:620); }
 });
 // 테마: 시스템 → 라이트 → 다크 순서로 바뀌고, 고른 값은 이 브라우저에 기억
+const SND_ON='<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>';
+const SND_OFF='<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>';
+function syncSoundBtn(){
+  const b=$('#dock-sound'), label='클릭 소리·진동 '+(soundOn?'켜짐':'꺼짐');
+  b.querySelector('svg').innerHTML = soundOn ? SND_ON : SND_OFF;
+  b.setAttribute('aria-pressed', soundOn?'true':'false'); b.setAttribute('aria-label', label+' (눌러서 바꾸기)'); b.title=label;
+}
+$('#dock-sound').addEventListener('click',()=>{
+  soundOn=!soundOn; try{ localStorage.setItem('ksg-sound', soundOn?'on':'off'); }catch(e){}
+  syncSoundBtn(); if(soundOn){ audioReady(); click('press'); }
+});
+syncSoundBtn();
 const THEMES=['system','light','dark'], THEME_LABEL={system:'시스템 설정',light:'라이트',dark:'다크'};
 const THEME_ICON={
   system:'<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>',
@@ -821,12 +883,13 @@ function renderLcd(focus){
   lcdTitleUpdate();
   lcdBack.style.visibility = stack.length>1 ? 'visible' : 'hidden';
   const wrap=h('div',{class:'lcd-wrap'});
-  if(list) wrap.append(lcdList(list,s));
+  if(list){ if(isCF(s)) wrap.append(lcdCoverFlow(list)); wrap.append(lcdList(list,s)); }
   else if(s.id==='now') wrap.append(lcdNow());
   else if(s.id==='mail') wrap.append(h('div',{class:'lcd-doc'}, h('div',{class:'eyebrow'},'Contact'), h('h2',null,'메시지 보내기'),
       h('p',null,'적어 보내면 '+CONTACT_TO+' 로 바로 전달돼요.'), contactForm('lcf')));
   else wrap.append(lcdAbout());
   lcdBody.replaceChildren(wrap);
+  layoutCflow();
   lcdKey=lcdKeyNow(); lcdSec=-1; lcdProgress();
   let f=null;
   if(activeId) f=document.getElementById(activeId);
@@ -837,6 +900,28 @@ function lcdHover(i){
   const s=topS(); if(s.sel===i) return;
   setSel(s,i);
   lcdBody.querySelectorAll('.lcd-row').forEach(r=>{ const on=r.dataset.i===String(i); r.classList.toggle('on',on); r.setAttribute('aria-selected',on?'true':'false'); });
+  layoutCflow();
+}
+function lcdCoverFlow(list){
+  const box=h('div',{class:'cflow'});
+  list.forEach((it,k)=>{
+    box.append(h('div',{class:'cf-item', 'data-k':k, onclick:()=>{
+        if(k===topS().sel){ select(); renderLcd(true); } else { lcdHover(k); click('tick'); }
+      }}, h('img',{src:artURL(it.idx), alt:'', draggable:'false'})));
+  });
+  return h('div',{class:'cflow-wrap', 'aria-hidden':'true'}, box, h('div',{class:'cf-cap'}, h('strong',{id:'cf-title'}), h('span',{id:'cf-sub'})));
+}
+function layoutCflow(){
+  const box=lcdBody.querySelector('.cflow'); if(!box) return;
+  const s=topS(), list=items(s); if(!list) return;
+  box.querySelectorAll('.cf-item').forEach(el=>{
+    const k=+el.dataset.k, o=k-s.sel, a=Math.abs(o), side=o<0?-1:1;
+    el.classList.toggle('center', o===0); el.style.zIndex=String(50-a); el.style.opacity = a>3 ? '0' : '1';
+    el.style.transform = o===0 ? 'translateX(-50%) translateZ(70px)'
+      : 'translateX(calc(-50% + '+side+' * (var(--g1) + '+(a-1)+' * var(--g2)))) rotateY('+(-side*60)+'deg)';
+  });
+  const p=projects[list[s.sel].idx], t=$('#cf-title'), sub=$('#cf-sub');
+  if(t) t.textContent=p.title; if(sub) sub.textContent=[p.period].concat(p.lang).join(' · ');
 }
 function lcdList(list,s){
   const el=h('div',{class:'lcd-list', role:'listbox', 'aria-label':titles[s.id]||s.arg});
@@ -933,6 +1018,12 @@ lcd.addEventListener('keydown',e=>{
   if(e.target.closest('input,textarea')) return;   // 입력 중에는 단축키를 쓰지 않음
   if(k==='Backspace'){ e.preventDefault(); if(stack.length>1){ back(); renderLcd(true); } return; }
   
+  if((k==='ArrowLeft'||k==='ArrowRight') && lcdBody.querySelector('.cflow')){
+    e.preventDefault();
+    const list=items(topS()), n=Math.max(0,Math.min(list.length-1,topS().sel+(k==='ArrowRight'?1:-1)));
+    if(n!==topS().sel){ lcdHover(n); click('tick'); const r=lcdBody.querySelectorAll('.lcd-row')[n]; if(r) r.focus({preventScroll:true}); }
+    return;
+  }
   if(k==='ArrowDown'||k==='ArrowUp'){
     const rows=[...lcdBody.querySelectorAll('.lcd-row')]; if(!rows.length) return;
     e.preventDefault();
@@ -948,6 +1039,7 @@ const T=THREE;
 let renderer;
 try{ renderer=new T.WebGLRenderer({antialias:true, alpha:true}); }catch(e){ fallback(); return; }
 has3D=true;
+booting=true;
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
 renderer.outputEncoding=T.sRGBEncoding;
 renderer.toneMapping=T.ACESFilmicToneMapping;
@@ -1126,7 +1218,7 @@ function drawNow(){
     return;
   }
   g.fillStyle='#555D69'; g.font=`500 24px ${MONO}`; g.fillText(`${current+1} of ${projects.length}`,24,HEAD+30);
-  art(p,current,24,HEAD+58,168);
+  drawSquare(artCanvas(current),24,HEAD+58,168);
   g.textBaseline='middle'; g.textAlign='left';
   const x=212, max=SW-x-24;
   g.fillStyle='#15181D'; g.font=`700 33px ${FONT}`;
@@ -1167,19 +1259,80 @@ function drawMail(){
   rr(bx,by,bw,bh,12); const gr=g.createLinearGradient(0,by,0,by+bh); gr.addColorStop(0,'#64A8F5'); gr.addColorStop(1,'#2361D1'); g.fillStyle=gr; g.fill();
   g.fillStyle='#FFFFFF'; g.font=`700 27px ${FONT}`; g.textAlign='center'; g.fillText('● 가운데 버튼 → 작성하기',SW/2,by+bh/2+1);
 }
+// 직접 그린 컬러 커버 (프로젝트 색 + 번호 + 제목)
+const artCache={}, artURLs={};
+function fitW(x,t,max){ if(x.measureText(t).width<=max) return t; let q=t; while(q.length>1 && x.measureText(q+'…').width>max) q=q.slice(0,-1); return q+'…'; }
+function artCanvas(i){
+  if(artCache[i]) return artCache[i];
+  const S=300, c=document.createElement('canvas'); c.width=c.height=S;
+  const x=c.getContext('2d'), pj=projects[i];
+  const gr=x.createLinearGradient(0,0,S,S); gr.addColorStop(0,'hsl('+pj.hue+',74%,60%)'); gr.addColorStop(1,'hsl('+(pj.hue+40)+',70%,24%)');
+  x.fillStyle=gr; x.fillRect(0,0,S,S);
+  x.strokeStyle='rgba(255,255,255,.13)'; x.lineWidth=2;
+  for(let k=1;k<12;k++){ x.beginPath(); x.arc(S*0.74,S*0.28,k*S*0.075,0,Math.PI*2); x.stroke(); }
+  const rg=x.createRadialGradient(S*0.2,S*0.15,10,S*0.2,S*0.15,S*0.9); rg.addColorStop(0,'rgba(255,255,255,.22)'); rg.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=rg; x.fillRect(0,0,S,S);
+  x.textAlign='left'; x.textBaseline='alphabetic'; x.fillStyle='rgba(255,255,255,.96)';
+  x.font='700 112px "Familjen Grotesk", '+FONT; x.fillText(pad(i+1),18,S-74);
+  x.font='700 23px '+FONT; x.fillText(fitW(x,pj.title,S-40),22,S-42);
+  x.fillStyle='rgba(255,255,255,.78)'; x.font='500 16px '+FONT; x.fillText(fitW(x,pj.lang.join(' · '),S-40),22,S-17);
+  return artCache[i]=c;
+}
+function artURL(i){ return artURLs[i] || (artURLs[i]=artCanvas(i).toDataURL('image/png')); }
+function drawSquare(src,x,y,sz){ g.save(); rr(x,y,sz,sz,10); g.clip(); g.drawImage(src,x,y,sz,sz); g.restore(); }
+// 사다리꼴(원근)로 커버를 세로 줄 단위로 그리고, 아래에 반사를 깔기
+function trapDraw(src,x0,x1,hL,hR,cy,shade){
+  const N=30, sw=src.width, sh=src.height, dw=(x1-x0)/N;
+  for(let j=0;j<N;j++){ const t=(j+0.5)/N, hh=hL+(hR-hL)*t; g.drawImage(src, sw*j/N,0, sw/N+0.6,sh, x0+dw*j, cy-hh/2, dw+0.7, hh); }
+  g.save(); g.globalAlpha=0.22;
+  for(let j=0;j<N;j++){ const t=(j+0.5)/N, hh=hL+(hR-hL)*t, base=cy+hh/2+4; g.setTransform(1,0,0,-1,0,2*base); g.drawImage(src, sw*j/N,0, sw/N+0.6,sh, x0+dw*j, base-hh, dw+0.7, hh); }
+  g.restore();
+  if(shade>0.01){ g.fillStyle='rgba(0,0,0,'+shade.toFixed(3)+')'; g.beginPath(); g.moveTo(x0,cy-hL/2); g.lineTo(x1,cy-hR/2); g.lineTo(x1,cy+hR/2); g.lineTo(x0,cy+hL/2); g.closePath(); g.fill(); }
+}
+function drawCoverFlow(list,s){
+  const BG='#0B0C0E'; g.fillStyle=BG; g.fillRect(0,HEAD,SW,SH-HEAD);
+  const pos = s.cfPos==null ? s.sel : s.cfPos, CX=SW/2, CY=HEAD+138, S0=196;
+  const order=list.map((it,k)=>({it,o:k-pos})).filter(e=>Math.abs(e.o)<3.4).sort((a,b)=>Math.abs(b.o)-Math.abs(a.o));
+  for(const {it,o} of order){
+    const a=Math.min(1,Math.abs(o)), ab=Math.abs(o), side=o<0?-1:1;
+    const w=S0*(1-0.58*a), hN=S0*(1-0.1*a), hF=S0*(1-0.34*a);
+    const cx = ab<=1 ? CX+o*158 : CX+side*(158+(ab-1)*58);
+    trapDraw(artCanvas(it.idx), cx-w/2, cx+w/2, o>0?hN:hF, o>0?hF:hN, CY, 0.42*a);
+  }
+  const fy=CY+S0/2, fg=g.createLinearGradient(0,fy,0,fy+80); fg.addColorStop(0,'rgba(11,12,14,0)'); fg.addColorStop(1,BG);
+  g.fillStyle=fg; g.fillRect(0,fy,SW,SH-fy);
+  const pj=projects[list[s.sel].idx];
+  g.textAlign='center'; g.textBaseline='middle';
+  g.fillStyle='#FFFFFF'; g.font='700 30px '+FONT; g.fillText(fit(pj.title,SW-60),SW/2,SH-64);
+  g.fillStyle='#A9B0BA'; g.font='500 22px '+FONT; g.fillText(fit([pj.period].concat(pj.lang).join(' · '),SW-60),SW/2,SH-30);
+}
+function drawBoot(){
+  g.fillStyle='#000000'; g.fillRect(0,0,SW,SH);
+  const a=Math.min(1,Math.max(0,(bootT-0.2)/0.5));
+  g.globalAlpha=a; g.textAlign='center'; g.textBaseline='middle';
+  g.fillStyle='#FFFFFF'; g.font='700 96px "Familjen Grotesk", '+FONT; g.fillText('KSG',SW/2,SH/2-40);
+  g.fillStyle='rgba(255,255,255,.6)'; g.font='500 24px '+FONT; g.fillText('Portfolio',SW/2,SH/2+22);
+  const pw=240, px=SW/2-pw/2, py=SH/2+80, f=Math.min(1,Math.max(0,(bootT-0.45)/(BOOT_LEN-0.85)));
+  rr(px,py,pw,10,5); g.fillStyle='rgba(255,255,255,.18)'; g.fill();
+  if(f>0){ g.save(); rr(px,py,pw,10,5); g.clip(); g.fillStyle='#FFFFFF'; g.fillRect(px,py,pw*f,10); g.restore(); }
+  g.globalAlpha=1;
+}
 function drawScreen(){
   const s=topS();
+  if(booting && bootT < BOOT_LEN-0.35){ drawBoot(); screenTex.needsUpdate=true; dirty=false; return; }
   header(s.arg || titles[s.id]);
   const list=items(s);
-  if(list) drawList(list,s); else if(s.id==='now') drawNow(); else if(s.id==='mail') drawMail(); else drawAbout();
+  if(list && isCF(s)) drawCoverFlow(list,s);
+  else if(list) drawList(list,s); else if(s.id==='now') drawNow(); else if(s.id==='mail') drawMail(); else drawAbout();
   const gl=g.createLinearGradient(0,0,SW*0.6,SH); gl.addColorStop(0,'rgba(255,255,255,.16)'); gl.addColorStop(0.45,'rgba(255,255,255,0)');
   g.fillStyle=gl; g.fillRect(0,0,SW,SH);
+  if(booting){ g.fillStyle='rgba(0,0,0,'+Math.max(0,1-(bootT-(BOOT_LEN-0.35))/0.35).toFixed(3)+')'; g.fillRect(0,0,SW,SH); }
   screenTex.needsUpdate=true; dirty=false;
 }
 if(document.fonts){ Promise.all([
   document.fonts.load('600 26px "IBM Plex Sans KR"','가나다'), document.fonts.load('500 20px "IBM Plex Mono"'),
   document.fonts.load('700 40px "Familjen Grotesk"'), document.fonts.load('700 40px "IBM Plex Sans KR"','MENU')
- ]).then(()=>{ dirty=true; applyTheme(); }).catch(()=>{}); }
+ ]).then(()=>{ for(const k in artCache) delete artCache[k]; for(const k in artURLs) delete artURLs[k]; dirty=true; applyTheme(); }).catch(()=>{}); }
 
 /* ---------- input ---------- */
 const ray=new T.Raycaster(), ndc=new T.Vector2(), ptr={x:0,y:0}, ptrS={x:0,y:0};
@@ -1205,6 +1358,8 @@ function onFsIcon(e){
 let mode=null, lastA=0, downA=0, acc=0, travel=0, lastX=0, lastY=0, dragYaw=0, dragPitch=0, wheelAcc=0;
 const press={center:0, tx:0, ty:0, dot:0, dotA:0};
 canvas.addEventListener('pointerdown',e=>{
+  audioReady();
+  if(booting) bootT=Math.max(bootT,BOOT_LEN-0.35);   // 누르면 부팅 건너뛰기
   if(onFsIcon(e)){ mode='fs'; try{ canvas.setPointerCapture(e.pointerId); }catch(err){} return; }
   const w=wheelLocal(e);
   if(w && w.r<RC){ mode='center'; press.center=1; }
@@ -1234,6 +1389,7 @@ function endPointer(e){
   if(mode==='fs'){ mode=null; if(onFsIcon(e)) openLcd(); return; }
   if(mode==='center'){ press.center=0; select(); }
   else if(mode==='wheel' && travel<0.3){
+    if(!booting) click('press');
     const deg=downA*180/Math.PI;
     if(deg>45&&deg<135){ press.ty=-1; back(); }
     else if(deg<-45&&deg>-135){ press.ty=1; togglePlay(); }
@@ -1253,6 +1409,8 @@ canvas.addEventListener('wheel',e=>{
   while(wheelAcc<-50){ scroll(-1); wheelAcc+=50; }
 },{passive:false});
 stage.addEventListener('keydown',e=>{
+  audioReady();
+  if(booting) bootT=Math.max(bootT,BOOT_LEN-0.35);
   const k=e.key; let handled=true;
   if(k==='ArrowDown') scroll(1); else if(k==='ArrowUp') scroll(-1);
   else if(k==='Enter'||k==='ArrowRight'){ press.center=1; setTimeout(()=>press.center=0,120); select(); }
@@ -1293,6 +1451,14 @@ function frame(now){
   }
   if(!visible) return;
   clock+=dt;
+  if(booting){ bootT+=dt; if(bootT>=BOOT_LEN) booting=false; dirty=true; }
+  const ts=topS();
+  if(isCF(ts)){
+    if(ts.cfPos==null) ts.cfPos=ts.sel;
+    const d=ts.sel-ts.cfPos;
+    if(Math.abs(d)>0.002){ ts.cfPos += reduce ? d : d*(1-Math.exp(-dt*11)); dirty=true; }
+    else if(ts.cfPos!==ts.sel){ ts.cfPos=ts.sel; dirty=true; }
+  }
   const amb=reduce?0:1;
   introT=Math.min(1,introT+dt/2.0); const e=1-Math.pow(1-introT,4);
   // 마우스를 부드럽게 따라가기만 하고, 제자리 흔들림·박자 튕김은 없음
