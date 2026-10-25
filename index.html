@@ -271,6 +271,8 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .lcd-doc{display:flex;flex-direction:column;gap:18px}
 .lcd-doc p{margin:0;font-size:20px;line-height:1.8;max-width:56ch}
 #lcd .meta{border-color:var(--lcd-line);max-width:560px}
+.brick-cv{display:block;width:100%;max-width:820px;aspect-ratio:4/3;height:auto;margin:4px auto 0;border-radius:14px;touch-action:none;cursor:crosshair;background:#0B0C0E}
+.brick-help{text-align:center;font-size:15px!important;color:var(--lcd-muted)}
 .cflow-wrap{margin-bottom:22px}
 .cflow{--cw:230px;--g1:180px;--g2:64px;position:relative;height:calc(var(--cw) + 84px);perspective:1100px;background:#0B0C0E;border-radius:16px;overflow:hidden}
 .cf-item{position:absolute;left:50%;top:28px;width:var(--cw);aspect-ratio:1/1;cursor:pointer;transition:transform .5s cubic-bezier(.2,.75,.2,1),opacity .3s;
@@ -319,7 +321,17 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
   .preview.inline p{font-size:15px}
   .toolbar{padding:4px}
 }
-@media (max-width:360px){ .dock button{padding:0 13px} .dock button span{display:none} }
+/* 휴대폰: 하단 바를 화면 폭에 맞춰 넓히고, 아이콘 위·글자 아래로 크게 */
+@media (max-width:600px){
+  body{padding-bottom:104px}
+  .dock{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));transform:none;justify-content:space-between;gap:2px;padding:5px;border-radius:22px}
+  .dock button{flex:1 1 0;min-width:0;flex-direction:column;justify-content:center;gap:3px;height:58px;padding:0 4px;border-radius:17px;font-size:11.5px;font-weight:600}
+  .dock button.icon-only{flex:0 0 50px;padding:0}
+  .dock svg{width:22px;height:22px}
+  .dock-sep{display:none}
+  .dock-ind{top:5px;bottom:5px;border-radius:17px}
+}
+@media (max-width:340px){ .dock button.icon-only{flex-basis:42px} .dock button{font-size:10.5px} }
 @media (prefers-reduced-motion:reduce){ .view,#lcd,.dock-ind{transition:none} .eq i{animation:none;height:70%} }
 </style>
 </head>
@@ -455,22 +467,24 @@ function items(s){
   switch(s.id){
     case 'main': return [
       {label:'Projects', go:'projects'},{label:'Skills', go:'skills'},{label:'About', go:'about'},
-      {label:'Profile', go:'contact'},{label:'Contact', go:'mail'}];
+      {label:'Profile', go:'contact'},{label:'Contact', go:'mail'},{label:'Extras', go:'extras'}];
     case 'projects': return groups.map(g=>({label:g.name, right:String(g.count), go:'group', arg:g.name}));
     case 'group': return projects.map((p,i)=>({p,i})).filter(o=>o.p.group===s.arg)
                     .map(o=>({label:o.p.title, right:o.p.period, idx:o.i, act:()=>playTrack(o.i,true)}));
     case 'skills': return tags.map(t=>({label:t.name, tech:t.name, right:String(t.count), go:'genre', arg:t.name}));
     case 'genre': return projects.map((p,i)=>({p,i})).filter(o=>tagsOf(o.p).includes(s.arg))
                     .map(o=>({label:o.p.title, right:o.p.period, idx:o.i, act:()=>playTrack(o.i,true)}));
+    case 'extras': return [{label:'Brick', go:'brick'}];
     case 'contact': return contacts.map(c=>({label:c.label, right:c.short, act: c.copy ? ()=>copyText(c.value) : null}));
     default: return null;
   }
 }
-const titles = {main:'Portfolio', projects:'Projects', skills:'Skills', about:'About', contact:'Profile', mail:'Contact', now:'프로젝트'};
+const titles = {main:'Portfolio', projects:'Projects', skills:'Skills', about:'About', contact:'Profile', mail:'Contact', extras:'Extras', brick:'Brick', now:'프로젝트'};
 
 function scroll(d){
   if(booting) return;
   const s=topS(), list=items(s);
+  if(s.id==='brick'){ brickMove(d); return; }
   if(s.id==='now') return;
   if(!list) return;
   const n=Math.max(0,Math.min(list.length-1,s.sel+d));
@@ -484,14 +498,14 @@ function select(){
   if(booting) return;
   click('press');
   const s=topS(), list=items(s);
-  if(!list){ if(s.id==='now'){ nowInfo=!nowInfo; dirty=true; } else if(s.id==='mail' && has3D){ openLcd(); } return; }
+  if(!list){ if(s.id==='now'){ nowInfo=!nowInfo; dirty=true; } else if(s.id==='mail' && has3D){ openLcd(); } else if(s.id==='brick'){ brickAction(); } return; }
   const it=list[s.sel];
-  if(it.go) stack.push({id:it.go, sel:0, top:0, arg:it.arg});
+  if(it.go){ stack.push({id:it.go, sel:0, top:0, arg:it.arg}); if(it.go==='brick') brickEnter(); }
   else if(it.act) it.act();
   dirty=true;
 }
-function back(){ if(booting) return; if(stack.length>1){ click('press'); stack.pop(); nowInfo=false; dirty=true; } }
-function togglePlay(){ /* 재생 기능 없음 */ }
+function back(){ if(booting) return; if(stack.length>1){ click('press'); if(topS().id==='brick') brickLeave(); stack.pop(); nowInfo=false; dirty=true; } }
+function togglePlay(){ if(topS().id==='brick') brickPause(); }
 function playTrack(i, open){
   const dir = i>current ? 1 : -1;
   current=(i+projects.length)%projects.length; elapsed=0; playing=false; nowInfo=false;
@@ -499,8 +513,8 @@ function playTrack(i, open){
   if(open && topS().id!=='now') stack.push({id:'now', sel:0, top:0});
   dirty=true;
 }
-function next(){ playTrack(current+1,false); }
-function prev(){ if(elapsed>3){ elapsed=0; dirty=true; } else playTrack(current-1,false); }
+function next(){ if(topS().id==='brick'){ brickMove(1.5); return; } playTrack(current+1,false); }
+function prev(){ if(topS().id==='brick'){ brickMove(-1.5); return; } if(elapsed>3){ elapsed=0; dirty=true; } else playTrack(current-1,false); }
 function toast(t){ toastText=t; toastUntil=performance.now()+1600; dirty=true; if(lcdOpen) lcdTitleUpdate(); }
 function setSel(s,i){ s.sel=i; if(i<s.top) s.top=i; if(i>=s.top+ROWS) s.top=i-ROWS+1; dirty=true; }
 function copyText(t, btn){
@@ -870,7 +884,7 @@ const P_PLAY='<path d="M7 4v16l13-8z"/>', P_PAUSE='<path d="M6 4h4v16H6zM14 4h4v
 const P_PREV='<path d="M6 5h2v14H6zM20 5v14L9 12z"/>', P_NEXT='<path d="M16 5h2v14h-2zM4 5v14l11-7z"/>';
 function svgEl(inner, cls){ const t=document.createElement('template'); t.innerHTML=`<svg class="${cls||''}" viewBox="0 0 24 24" aria-hidden="true">${inner}</svg>`; return t.content.firstChild; }
 let lcdKey='', lcdSec=-1, lcdToast=false;
-const lcdKeyNow = () => topS().id==='mail' ? 'mail|'+stack.length : [current, playing, stack.length, topS().id, topS().arg||''].join('|');
+const lcdKeyNow = () => (topS().id==='mail'||topS().id==='brick') ? topS().id+'|'+stack.length : [current, playing, stack.length, topS().id, topS().arg||''].join('|');
 function lcdTitleUpdate(){
   const s=topS(), on=performance.now()<toastUntil;
   lcdTitle.textContent = on ? toastText : (s.arg || titles[s.id]);
@@ -885,6 +899,8 @@ function renderLcd(focus){
   const wrap=h('div',{class:'lcd-wrap'});
   if(list){ if(isCF(s)) wrap.append(lcdCoverFlow(list)); wrap.append(lcdList(list,s)); }
   else if(s.id==='now') wrap.append(lcdNow());
+  else if(s.id==='brick') wrap.append(h('div',{class:'lcd-doc'}, h('div',{class:'eyebrow'},'Extras'), h('h2',null,'Brick'), brickCanvas(),
+      h('p',{class:'brick-help'},'마우스나 손가락을 좌우로 움직여 막대를 옮기고, 화면을 눌러 시작해요. 키보드 ← → 이동, Space 시작·일시정지.')));
   else if(s.id==='mail') wrap.append(h('div',{class:'lcd-doc'}, h('div',{class:'eyebrow'},'Contact'), h('h2',null,'메시지 보내기'),
       h('p',null,'적어 보내면 '+CONTACT_TO+' 로 바로 전달돼요.'), contactForm('lcf')));
   else wrap.append(lcdAbout());
@@ -1016,6 +1032,11 @@ lcd.addEventListener('keydown',e=>{
   const k=e.key;
   if(k==='Escape'){ e.preventDefault(); closeLcd(); return; }
   if(e.target.closest('input,textarea')) return;   // 입력 중에는 단축키를 쓰지 않음
+  if(topS().id==='brick'){
+    if(k==='ArrowLeft'){ e.preventDefault(); brickMove(-1); return; }
+    if(k==='ArrowRight'){ e.preventDefault(); brickMove(1); return; }
+    if(k===' '||k==='Enter'){ e.preventDefault(); brickAction(); return; }
+  }
   if(k==='Backspace'){ e.preventDefault(); if(stack.length>1){ back(); renderLcd(true); } return; }
   
   if((k==='ArrowLeft'||k==='ArrowRight') && lcdBody.querySelector('.cflow')){
@@ -1064,22 +1085,41 @@ const keyL=new T.DirectionalLight(0xffffff,0.9); keyL.position.set(-3,5,6); scen
 scene.add(new T.HemisphereLight(0xffffff,0x445066,0.35));
 
 const lin = css => new T.Color().setStyle(css.trim()).convertSRGBToLinear();
-function rrShape(w,hh,r){
-  const s=new T.Shape(), x=-w/2, y=-hh/2;
-  s.moveTo(x+r,y); s.lineTo(x+w-r,y); s.absarc(x+w-r,y+r,r,-Math.PI/2,0,false);
-  s.lineTo(x+w,y+hh-r); s.absarc(x+w-r,y+hh-r,r,0,Math.PI/2,false);
-  s.lineTo(x+r,y+hh); s.absarc(x+r,y+hh-r,r,Math.PI/2,Math.PI,false);
-  s.lineTo(x,y+r); s.absarc(x+r,y+r,r,Math.PI,Math.PI*1.5,false);
-  return s;
+// 둥근 사각형 외곽선: 시작점과 끝점이 겹치지 않게 점을 직접 만들어서
+// (겹치면 아래쪽 모서리 베벨이 찌그러져 이음새처럼 보임)
+function rrShape(w,hh,r,seg){
+  const x=-w/2, y=-hh/2, K=seg||18, pts=[];
+  const corners=[[x+w-r,y+r,-Math.PI/2],[x+w-r,y+hh-r,0],[x+r,y+hh-r,Math.PI/2],[x+r,y+r,Math.PI]];
+  for(const [cx,cy,a0] of corners) for(let k=0;k<=K;k++){ const a=a0+k/K*Math.PI/2; pts.push(new T.Vector2(cx+Math.cos(a)*r, cy+Math.sin(a)*r)); }
+  return new T.Shape(pts);
+}
+// 같은 위치의 꼭짓점끼리 법선을 평균내서 크롬 표면을 매끈하게 (각진 면·이음새 제거)
+function smoothNormals(geo, deg){
+  const pos=geo.attributes.position, nor=geo.attributes.normal, n=pos.count, lim=Math.cos(deg*Math.PI/180);
+  const groups=new Map();
+  for(let i=0;i<n;i++){
+    const k=Math.round(pos.getX(i)*1e4)+'_'+Math.round(pos.getY(i)*1e4)+'_'+Math.round(pos.getZ(i)*1e4);
+    let arr=groups.get(k); if(!arr) groups.set(k, arr=[]); arr.push(i);
+  }
+  const out=new Float32Array(n*3), a=new T.Vector3(), b=new T.Vector3(), sum=new T.Vector3();
+  groups.forEach(idx=>{
+    for(const i of idx){
+      a.fromBufferAttribute(nor,i); sum.set(0,0,0);
+      for(const j of idx){ b.fromBufferAttribute(nor,j); if(a.dot(b)>=lim) sum.add(b); }
+      sum.normalize(); out[i*3]=sum.x; out[i*3+1]=sum.y; out[i*3+2]=sum.z;
+    }
+  });
+  geo.setAttribute('normal', new T.BufferAttribute(out,3));
 }
 
 const device=new T.Group(); scene.add(device);
 const W=2.4, H=4.0, FZ=0.25;
-const bodyGeo=new T.ExtrudeGeometry(rrShape(W,H,0.34),{depth:0.3, bevelEnabled:true, bevelThickness:0.1, bevelSize:0.1, bevelSegments:10, curveSegments:28});
+const bodyGeo=new T.ExtrudeGeometry(rrShape(W,H,0.34,24),{depth:0.3, bevelEnabled:true, bevelThickness:0.1, bevelSize:0.1, bevelSegments:12});
 bodyGeo.center();
+smoothNormals(bodyGeo, 60);
 device.add(new T.Mesh(bodyGeo, new T.MeshStandardMaterial({color:0xd9dce0, metalness:1, roughness:0.16})));
 const frontMat=new T.MeshPhysicalMaterial({roughness:0.28, clearcoat:1, clearcoatRoughness:0.06});
-const front=new T.Mesh(new T.ShapeGeometry(rrShape(W,H,0.34),28), frontMat);
+const front=new T.Mesh(new T.ShapeGeometry(rrShape(W,H,0.34,24)), frontMat);
 front.position.z=FZ+0.002; device.add(front);
 
 const SCR_Y=0.98;
@@ -1093,6 +1133,21 @@ const screen=new T.Mesh(new T.PlaneGeometry(1.84,1.38), new T.MeshBasicMaterial(
 screen.position.set(0,SCR_Y,FZ+0.006); device.add(screen);
 const glass=new T.Mesh(new T.ShapeGeometry(rrShape(2.0,1.56,0.09),12), new T.MeshStandardMaterial({color:0xffffff, transparent:true, opacity:0.07, roughness:0.05, metalness:0.2}));
 glass.position.set(0,SCR_Y,FZ+0.008); device.add(glass);
+// 뒷면 레이저 각인
+const engC=document.createElement('canvas'); engC.width=512; engC.height=900;
+const engTex=new T.CanvasTexture(engC); engTex.encoding=T.sRGBEncoding; engTex.anisotropy=renderer.capabilities.getMaxAnisotropy();
+function drawEngrave(){
+  const x=engC.getContext('2d'); x.clearRect(0,0,512,900); x.textAlign='center'; x.textBaseline='middle';
+  const cut=(t,y,font)=>{ x.font=font; x.fillStyle='rgba(255,255,255,.6)'; x.fillText(t,256,y+2); x.fillStyle='rgba(38,42,50,.78)'; x.fillText(t,256,y); };
+  cut('KSG',290,'700 128px "Familjen Grotesk", "IBM Plex Sans KR", sans-serif');
+  cut('김세광 · Developer Portfolio',410,'600 33px "IBM Plex Sans KR", sans-serif');
+  cut('Designed and built by 김세광',752,'500 19px "IBM Plex Sans KR", sans-serif');
+  cut('Three.js · WebGL · Canvas · 2026',784,'500 19px "IBM Plex Sans KR", sans-serif');
+  engTex.needsUpdate=true;
+}
+drawEngrave();
+const engrave=new T.Mesh(new T.PlaneGeometry(2.0,3.516), new T.MeshStandardMaterial({map:engTex, transparent:true, metalness:0.7, roughness:0.38, depthWrite:false}));
+engrave.position.set(0,0,-FZ-0.004); engrave.rotation.y=Math.PI; device.add(engrave);
 
 const WY=-0.98, R=0.84, RC=0.3;
 const wheelGroup=new T.Group(); wheelGroup.position.set(0,WY,FZ+0.002); device.add(wheelGroup);
@@ -1249,6 +1304,82 @@ function drawAbout(){
   g.font=`600 25px ${FONT}`; g.fillStyle='#2361D1';
   g.fillText(fit(aboutMeta.map(m=>m[0]+' '+m[1]).join(' · '),SW-56),28,Math.min(y+6,SH-30));
 }
+// ---------- 숨은 게임: Extras → Brick ----------
+const BCOLS=8, BROWS=5, BGAP=6, BW=(SW-32-(BCOLS-1)*BGAP)/BCOLS, BH=22, BTOP=HEAD+56, PY=SH-30, PH=12, BALL=8;
+const BR={state:'ready', lives:3, score:0, level:1, best:0, px:SW/2, pw:120, bricks:[], bx:0, by:0, vx:0, vy:0};
+try{ BR.best=+(localStorage.getItem('ksg-brick-best')||0); }catch(e){}
+function brickLevel(){
+  BR.bricks=[]; for(let r=0;r<BROWS;r++) for(let c=0;c<BCOLS;c++) BR.bricks.push({x:16+c*(BW+BGAP), y:BTOP+r*(BH+BGAP), r, alive:true});
+  BR.pw=Math.max(80,120-(BR.level-1)*8); BR.px=SW/2; BR.state='ready'; stickBall(); dirty=true;
+}
+function brickNew(){ BR.lives=3; BR.score=0; BR.level=1; brickLevel(); }
+function brickEnter(){ if(!BR.bricks.length || BR.state==='over') brickNew(); }
+function brickLeave(){ if(BR.state==='play') BR.state='pause'; }
+function brickPause(){ if(BR.state==='play') BR.state='pause'; else if(BR.state==='pause') BR.state='play'; dirty=true; }
+function stickBall(){ BR.bx=BR.px; BR.by=PY-PH/2-BALL-1; BR.vx=0; BR.vy=0; }
+function saveBest(){ if(BR.score>BR.best){ BR.best=BR.score; try{ localStorage.setItem('ksg-brick-best',String(BR.best)); }catch(e){} } }
+function brickAction(){
+  if(BR.state==='ready'){ const sp=380*(1+0.12*(BR.level-1)), a=(-60-Math.random()*60)*Math.PI/180; BR.vx=Math.cos(a)*sp; BR.vy=Math.sin(a)*sp; BR.state='play'; }
+  else if(BR.state==='play'||BR.state==='pause') brickPause();
+  else if(BR.state==='over') brickNew();
+  else if(BR.state==='win'){ BR.level++; brickLevel(); }
+  dirty=true;
+}
+function brickSetX(x){ BR.px=Math.max(BR.pw/2, Math.min(SW-BR.pw/2, x)); if(BR.state==='ready') stickBall(); dirty=true; }
+function brickMove(d){ brickSetX(BR.px+d*46); }
+function brickUpdate(dt){
+  if(BR.state!=='play') return;
+  const steps=Math.max(1,Math.ceil(dt*Math.hypot(BR.vx,BR.vy)/5)), h=dt/steps;
+  for(let i=0;i<steps;i++){
+    BR.bx+=BR.vx*h; BR.by+=BR.vy*h;
+    if(BR.bx<BALL){ BR.bx=BALL; BR.vx=Math.abs(BR.vx); }
+    if(BR.bx>SW-BALL){ BR.bx=SW-BALL; BR.vx=-Math.abs(BR.vx); }
+    if(BR.by<HEAD+BALL){ BR.by=HEAD+BALL; BR.vy=Math.abs(BR.vy); }
+    if(BR.vy>0 && BR.by+BALL>=PY-PH/2 && BR.by<PY+PH/2 && Math.abs(BR.bx-BR.px)<=BR.pw/2+BALL){
+      let off=Math.max(-1,Math.min(1,(BR.bx-BR.px)/(BR.pw/2)));
+      if(Math.abs(off)<0.22) off=(off<0||(off===0&&BR.vx<0)?-1:1)*0.22;   // 정중앙에 맞아도 수직으로만 오가지 않게
+      const sp=Math.hypot(BR.vx,BR.vy), ang=(-90+off*60+(Math.random()-0.5)*6)*Math.PI/180;
+      BR.vx=Math.cos(ang)*sp; BR.vy=Math.sin(ang)*sp; BR.by=PY-PH/2-BALL; click('tick');
+    }
+    for(const b of BR.bricks){
+      if(!b.alive) continue;
+      const cx=Math.max(b.x,Math.min(BR.bx,b.x+BW)), cy=Math.max(b.y,Math.min(BR.by,b.y+BH)), dx=BR.bx-cx, dy=BR.by-cy;
+      if(dx*dx+dy*dy<=BALL*BALL){
+        b.alive=false; BR.score+=10*BR.level; click('press');
+        if(Math.abs(dx)>Math.abs(dy)) BR.vx=-BR.vx; else BR.vy=-BR.vy;
+        BR.vx*=1.01; BR.vy*=1.01;
+        break;
+      }
+    }
+    if(BR.by>SH+BALL){ BR.lives--; if(BR.lives<=0){ BR.state='over'; saveBest(); } else { BR.state='ready'; stickBall(); } return; }
+    if(BR.bricks.every(b=>!b.alive)){ BR.state='win'; saveBest(); stickBall(); return; }
+  }
+}
+const BRICK_HUES=[2,28,48,150,210];
+function drawBrick(){
+  g.fillStyle='#0B0C0E'; g.fillRect(0,HEAD,SW,SH-HEAD);
+  g.textBaseline='middle'; g.font='600 20px '+MONO; g.fillStyle='#A9B0BA';
+  g.textAlign='left'; g.fillText('SCORE '+BR.score,16,HEAD+24);
+  g.textAlign='center'; g.fillText('LV '+BR.level+'   '+'●'.repeat(Math.max(0,BR.lives)),SW/2,HEAD+24);
+  g.textAlign='right'; g.fillText('BEST '+Math.max(BR.best,BR.score),SW-16,HEAD+24);
+  for(const b of BR.bricks){
+    if(!b.alive) continue;
+    const hue=BRICK_HUES[b.r%BRICK_HUES.length], gr=g.createLinearGradient(0,b.y,0,b.y+BH);
+    gr.addColorStop(0,'hsl('+hue+',88%,66%)'); gr.addColorStop(1,'hsl('+hue+',76%,44%)');
+    g.fillStyle=gr; rr(b.x,b.y,BW,BH,5); g.fill();
+  }
+  const pg=g.createLinearGradient(0,PY-PH/2,0,PY+PH/2); pg.addColorStop(0,'#FFFFFF'); pg.addColorStop(1,'#AEB6C1');
+  g.fillStyle=pg; rr(BR.px-BR.pw/2,PY-PH/2,BR.pw,PH,6); g.fill();
+  g.fillStyle='#FFFFFF'; g.beginPath(); g.arc(BR.bx,BR.by,BALL,0,Math.PI*2); g.fill();
+  const msg={ready:'● 가운데 버튼으로 시작 · 휠로 이동', pause:'일시정지 · ● 계속하기', over:'GAME OVER · ● 다시 하기', win:'CLEAR! · ● 다음 단계'}[BR.state];
+  if(msg){ g.fillStyle='rgba(11,12,14,.78)'; g.fillRect(0,300,SW,62); g.fillStyle='#FFFFFF'; g.font='700 27px '+FONT; g.textAlign='center'; g.fillText(fit(msg,SW-40),SW/2,331); }
+}
+// 크게 보기 화면에서는 기기 화면 캔버스를 그대로 크게 보여주고 마우스·손가락으로 조작
+function brickCanvas(){ sc.classList.add('brick-cv'); return sc; }
+function scX(e){ const r=sc.getBoundingClientRect(); return (e.clientX-r.left)/r.width*SW; }
+sc.addEventListener('pointermove',e=>{ if(lcdOpen && topS().id==='brick') brickSetX(scX(e)); });
+sc.addEventListener('pointerdown',e=>{ if(!(lcdOpen && topS().id==='brick')) return; audioReady(); brickSetX(scX(e)); if(BR.state!=='play') brickAction(); });
+
 function drawMail(){
   g.fillStyle='#FFFFFF'; g.fillRect(0,HEAD,SW,SH-HEAD);
   g.textAlign='left'; g.textBaseline='middle';
@@ -1323,7 +1454,7 @@ function drawScreen(){
   header(s.arg || titles[s.id]);
   const list=items(s);
   if(list && isCF(s)) drawCoverFlow(list,s);
-  else if(list) drawList(list,s); else if(s.id==='now') drawNow(); else if(s.id==='mail') drawMail(); else drawAbout();
+  else if(list) drawList(list,s); else if(s.id==='now') drawNow(); else if(s.id==='mail') drawMail(); else if(s.id==='brick') drawBrick(); else drawAbout();
   const gl=g.createLinearGradient(0,0,SW*0.6,SH); gl.addColorStop(0,'rgba(255,255,255,.16)'); gl.addColorStop(0.45,'rgba(255,255,255,0)');
   g.fillStyle=gl; g.fillRect(0,0,SW,SH);
   if(booting){ g.fillStyle='rgba(0,0,0,'+Math.max(0,1-(bootT-(BOOT_LEN-0.35))/0.35).toFixed(3)+')'; g.fillRect(0,0,SW,SH); }
@@ -1332,7 +1463,7 @@ function drawScreen(){
 if(document.fonts){ Promise.all([
   document.fonts.load('600 26px "IBM Plex Sans KR"','가나다'), document.fonts.load('500 20px "IBM Plex Mono"'),
   document.fonts.load('700 40px "Familjen Grotesk"'), document.fonts.load('700 40px "IBM Plex Sans KR"','MENU')
- ]).then(()=>{ for(const k in artCache) delete artCache[k]; for(const k in artURLs) delete artURLs[k]; dirty=true; applyTheme(); }).catch(()=>{}); }
+ ]).then(()=>{ drawEngrave(); for(const k in artCache) delete artCache[k]; for(const k in artURLs) delete artURLs[k]; dirty=true; applyTheme(); }).catch(()=>{}); }
 
 /* ---------- input ---------- */
 const ray=new T.Raycaster(), ndc=new T.Vector2(), ptr={x:0,y:0}, ptrS={x:0,y:0};
@@ -1412,6 +1543,15 @@ stage.addEventListener('keydown',e=>{
   audioReady();
   if(booting) bootT=Math.max(bootT,BOOT_LEN-0.35);
   const k=e.key; let handled=true;
+  if(topS().id==='brick' && !booting){
+    if(k==='ArrowLeft') brickMove(-1); else if(k==='ArrowRight') brickMove(1);
+    else if(k==='Enter'||k===' '){ press.center=1; setTimeout(()=>press.center=0,120); brickAction(); }
+    else if(k==='Escape'||k==='Backspace'){ press.ty=-1; back(); }
+    else if(k==='f'||k==='F') openLcd();
+    else handled=false;
+    if(handled) e.preventDefault();
+    return;
+  }
   if(k==='ArrowDown') scroll(1); else if(k==='ArrowUp') scroll(-1);
   else if(k==='Enter'||k==='ArrowRight'){ press.center=1; setTimeout(()=>press.center=0,120); select(); }
   else if(k==='Escape'||k==='ArrowLeft'||k==='Backspace'){ press.ty=-1; back(); }
@@ -1443,7 +1583,10 @@ function frame(now){
     if(elapsed>=runtime(projects[current])) next();
     const sec=Math.floor(elapsed); if(sec!==lastSec){ lastSec=sec; if(topS().id==='now') dirty=true; }
   }
+  const inBrick = topS().id==='brick' && !booting;
+  if(inBrick && (visible||lcdOpen)){ brickUpdate(dt); dirty=true; }
   if(lcdOpen){
+    if(inBrick && dirty) drawScreen();
     if(lcdKeyNow()!==lcdKey) renderLcd();
     lcdProgress();
     if((now<toastUntil)!==lcdToast) lcdTitleUpdate();
