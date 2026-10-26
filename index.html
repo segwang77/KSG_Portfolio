@@ -430,15 +430,14 @@ function projLinks(p, cls){
   if(p.download) return h("a",{href:p.download, class:cls||null, target:"_blank", rel:"noopener noreferrer"}, "설치 파일 받기 · Windows · "+p.size+" ↗");
   return h("span",{class:"file-note"}, "Windows 설치 파일 · "+p.file);
 }
-// 리스트 화면의 About에만 보이는 소개글
+// About 소개글 (아이팟·크게 보기·리스트 화면 모두 같은 글)
 const aboutListTitle = '배우며 도전하고, 끝까지 완성하고, 새롭게 풀어 갑니다.';
 const aboutListText = [
-  '필요한 것이 생기면 직접 배우고 바로 만들어 봅니다. JSP와 MySQL로 첫 커뮤니티를 만든 뒤 Firebase, Next.js, Electron, Three.js까지 하나씩 익혀 가며 영역을 넓혀 왔습니다.',
-  '시작한 일은 배포까지 마무리하는 것을 원칙으로 삼고 있습니다. 그렇게 만든 프로젝트들은 모두 지금도 실제로 쓰이고 있습니다.',
-  '일상의 작은 불편함에서 아이디어를 얻습니다. 데이트 코스를 짤 때 장소와 동선, 비용을 따로 찾아야 했던 경험이 코스 플래너가 되었고, 평범한 이력서 대신 휠을 돌려 둘러보는 이 포트폴리오가 되었습니다.'
+  '만들고 싶은 것이 생기면 필요한 기술부터 배우고 바로 만들어 봅니다. JSP와 MySQL로 첫 커뮤니티를 만든 뒤, Firebase와 Next.js, Electron, Three.js를 차례로 익히며 할 수 있는 일을 넓혀 왔습니다.',
+  'AI는 저에게 좋은 도구입니다. 반복적인 작업은 AI와 함께 빠르게 처리하고, 그만큼 아낀 시간을 기획과 검증, 사용자 경험을 다듬는 데 씁니다.',
+  '시작한 프로젝트는 배포까지 마무리하는 것을 원칙으로 삼고 있습니다. 이 포트폴리오에 담긴 다섯 개의 프로젝트도 모두 직접 배포해 누구나 사용해 볼 수 있습니다.',
+  '아이디어는 일상의 작은 불편함에서 얻습니다. 데이트 코스를 짤 때마다 장소와 동선, 비용을 따로 찾아봐야 했던 불편함은 코스 플래너로 이어졌고, 딱딱한 이력서 대신 즐겁게 둘러볼 수 있는 소개를 만들고 싶다는 생각은 휠을 돌려 탐색하는 이 포트폴리오로 이어졌습니다.'
 ];
-// 아이팟·크게 보기 화면의 About
-const aboutText = ["JSP 커뮤니티 사이트부터 Firebase 웹 앱, Next.js 서비스, Electron 데스크톱 앱, Three.js로 만든 이 포트폴리오까지 직접 만들어 배포한 작업들을 모았어요."];
 const aboutMeta = [["프로젝트",projects.length+"개"],["웹",projects.filter(p=>p.kind.includes("웹")).length+"개"],["데스크톱",projects.filter(p=>p.kind.includes("데스크톱")).length+"개"]];
 // 만 나이는 오늘 날짜로 자동 계산돼요
 const BIRTH = {y:2006, m:7, d:4};
@@ -496,6 +495,11 @@ function scroll(d){
   if(booting) return;
   const s=topS(), list=items(s);
   if(s.id==='brick'){ brickMove(d); return; }
+  if(s.id==='about'){
+    const y=Math.max(0,Math.min(s.aboutMax||0,(s.aboutY||0)+d*72));
+    if(y!==(s.aboutY||0)){ s.aboutY=y; dirty=true; click('tick'); }
+    return;
+  }
   if(s.id==='now') return;
   if(!list) return;
   const n=Math.max(0,Math.min(list.length-1,s.sel+d));
@@ -1001,8 +1005,8 @@ function lcdNow(){
 }
 function lcdAbout(){
   return h('div',{class:'lcd-doc'},
-    h('div',{class:'eyebrow'},'Liner Notes'), h('h2',null,'About'),
-    aboutText.map(t=>h('p',null,t)),
+    h('div',{class:'eyebrow'},'About'), h('h2',null,aboutListTitle),
+    aboutListText.map(t=>h('p',null,t)),
     h('dl',{class:'meta'}, aboutMeta.map(([k,v])=>h('div',null,h('dt',null,k),h('dd',null,v)))));
 }
 function lcdProgress(){
@@ -1315,13 +1319,34 @@ function drawNow(){
   g.textAlign='left'; g.fillStyle='#555D69'; g.font=`500 24px ${FONT}`; g.fillText('개발 기간',24,by);
   g.textAlign='right'; g.fillStyle='#15181D'; g.font=`700 26px ${FONT}`; g.fillText([p.period, p.year].filter(Boolean).join(' · '),SW-24,by);
 }
+// 기기 화면 About: 글이 길어서 휠로 위아래 스크롤
 function drawAbout(){
-  g.fillStyle='#FFFFFF'; g.fillRect(0,HEAD,SW,SH-HEAD);
-  g.textAlign='left'; g.textBaseline='middle'; let y=HEAD+46;
-  g.font=`500 29px ${FONT}`; g.fillStyle='#15181D';
-  aboutText.forEach(para=>{ wrap(para,SW-56,3).forEach(l=>{ g.fillText(l,28,y); y+=43; }); y+=12; });
-  g.font=`600 25px ${FONT}`; g.fillStyle='#2361D1';
-  g.fillText(fit(aboutMeta.map(m=>m[0]+' '+m[1]).join(' · '),SW-56),28,Math.min(y+6,SH-30));
+  const s=topS(), top=HEAD, view=SH-HEAD, pad=22, lh=36;
+  g.fillStyle='#FFFFFF'; g.fillRect(0,top,SW,view);
+  g.textAlign='left'; g.textBaseline='middle';
+  const rows=[];
+  g.font=`700 28px ${FONT}`; wrap(aboutListTitle,SW-64,9).forEach(l=>rows.push(['t',l]));
+  rows.push(['gap']);
+  g.font=`500 24px ${FONT}`;
+  aboutListText.forEach(p=>{ wrap(p,SW-64,99).forEach(l=>rows.push(['p',l])); rows.push(['gap']); });
+  rows.push(['m', aboutMeta.map(m=>m[0]+' '+m[1]).join(' · ')]);
+  const H=rows.reduce((a,r)=>a+(r[0]==='gap'?14:r[0]==='t'?40:lh),0)+pad*2;
+  s.aboutMax=Math.max(0,H-view);
+  s.aboutY=Math.max(0,Math.min(s.aboutMax,s.aboutY||0));
+  g.save(); g.beginPath(); g.rect(0,top,SW,view); g.clip();
+  let y=top+pad+20-s.aboutY;
+  for(const [k,t] of rows){
+    if(k==='gap'){ y+=14; continue; }
+    if(k==='t'){ g.font=`700 28px ${FONT}`; g.fillStyle='#15181D'; g.fillText(t,28,y); y+=40; }
+    else if(k==='p'){ g.font=`500 24px ${FONT}`; g.fillStyle='#2D333C'; g.fillText(t,28,y); y+=lh; }
+    else { g.font=`600 23px ${FONT}`; g.fillStyle='#2361D1'; g.fillText(fit(t,SW-56),28,y); y+=lh; }
+  }
+  g.restore();
+  if(s.aboutMax>0){   // 스크롤 막대
+    const th=Math.max(40,view*view/H), ty=top+(view-th)*(s.aboutY/s.aboutMax);
+    g.fillStyle='#E4E7EB'; g.fillRect(SW-12,top,12,view);
+    g.fillStyle='#9AA2AD'; rr(SW-10,ty+3,8,th-6,4); g.fill();
+  }
 }
 // ---------- 숨은 게임: Extras → Brick ----------
 const BCOLS=8, BROWS=5, BGAP=6, BW=(SW-32-(BCOLS-1)*BGAP)/BCOLS, BH=22, BTOP=HEAD+56, PY=SH-30, PH=12, BALL=8;
