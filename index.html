@@ -275,7 +275,8 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .brick-cv{display:block;width:100%;max-width:820px;aspect-ratio:4/3;height:auto;margin:4px auto 0;border-radius:14px;touch-action:none;cursor:crosshair;background:#0B0C0E}
 .brick-help{text-align:center;font-size:15px!important;color:var(--lcd-muted)}
 .cflow-wrap{margin-bottom:22px}
-.cflow{--cw:230px;--g1:180px;--g2:64px;position:relative;height:calc(var(--cw) + 84px);perspective:1100px;background:#0B0C0E;border-radius:16px;overflow:hidden}
+.cflow{--cw:230px;--g1:180px;--g2:64px;position:relative;height:calc(var(--cw) + 84px);perspective:1100px;background:#0B0C0E;border-radius:16px;overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab}
+.cflow:active{cursor:grabbing}
 .cf-item{position:absolute;left:50%;top:28px;width:var(--cw);aspect-ratio:1/1;cursor:pointer;transition:transform .5s cubic-bezier(.2,.75,.2,1),opacity .3s;
   -webkit-box-reflect:below 4px linear-gradient(transparent 62%,rgba(255,255,255,.26))}
 .cf-item img{display:block;width:100%;height:100%;border-radius:4px;user-select:none;-webkit-user-drag:none}
@@ -422,7 +423,7 @@ const projects = [
   {title:"저상버스 알리미", group:"개인 프로젝트", kind:"웹 앱 (PWA)", year:2026, days:1, period:"1일", url:"https://lowbus-sgwng.web.app/",
    lang:["TypeScript","JavaScript"],
    stack:["React 19","Vite","Tailwind CSS 4","TanStack Query","React Router","Motion","MapLibre","PWA","Firebase Functions","Cloud Firestore","Firebase Hosting","TAGO 공공데이터 API","Vitest","Playwright"], hue:72,
-   desc:"휠체어 이용자를 위한 전국 저상버스 도착 알리미. 모든 버스를 섞어 보여 주는 일반 버스 앱과 달리, 내가 탈 수 있는 저상버스만 골라 언제 오는지 크게 보여 주고 미리 알려 줘요. 국토교통부 TAGO 공공데이터를 Firebase Functions로 중계해 서비스키를 서버에만 두고, 음성 안내와 고대비·큰 글씨 모드, PWA 설치를 지원해요."}
+   desc:"휠체어 이용자를 위한 전국 저상버스 도착 알리미. 모든 버스를 섞어 보여 주는 일반 버스 앱과 달리, 내가 탈 수 있는 저상버스만 골라 언제 오는지 크게 보여 주고 미리 알려 줘요. 국토교통부 TAGO 공공데이터를 Firebase Functions로 중계해 서비스키를 서버에만 두고, 음성 안내와 고대비·큰 글씨 모드, PWA 설치를 지원해요. Vitest와 Playwright로 테스트하고 axe로 WCAG 2.2 AA 접근성을 점검했어요."}
 ];
 const tagsOf = p => [...p.lang, ...p.stack];
 const groups = [...new Set(projects.map(p=>p.group))].map(name=>({name, count:projects.filter(p=>p.group===name).length}));
@@ -947,13 +948,41 @@ function lcdHover(i){
   lcdBody.querySelectorAll('.lcd-row').forEach(r=>{ const on=r.dataset.i===String(i); r.classList.toggle('on',on); r.setAttribute('aria-selected',on?'true':'false'); });
   layoutCflow();
 }
+// Cover Flow 한 칸 이동 (밀기·가로 스크롤 공용)
+function cfStep(dir){
+  const s=topS(), list=items(s); if(!list) return;
+  const n=Math.max(0,Math.min(list.length-1,s.sel+dir));
+  if(n!==s.sel){ lcdHover(n); click('tick'); }
+}
+let cfDragged=false;
 function lcdCoverFlow(list){
   const box=h('div',{class:'cflow'});
   list.forEach((it,k)=>{
     box.append(h('div',{class:'cf-item', 'data-k':k, onclick:()=>{
+        if(cfDragged) return;   // 밀어서 넘긴 직후의 클릭은 무시
         if(k===topS().sel){ select(); renderLcd(true); } else { lcdHover(k); click('tick'); }
       }}, h('img',{src:artURL(it.idx), alt:'', draggable:'false'})));
   });
+  // 마우스·손가락으로 좌우로 밀면 커버가 넘어감 (왼쪽으로 밀면 다음)
+  let drag=null, wheelX=0;
+  box.addEventListener('pointerdown',e=>{ drag={x:e.clientX, acc:0, id:e.pointerId}; cfDragged=false; audioReady(); });
+  box.addEventListener('pointermove',e=>{
+    if(!drag) return;
+    drag.acc+=e.clientX-drag.x; drag.x=e.clientX;
+    if(!cfDragged && Math.abs(drag.acc)>6){ cfDragged=true; try{ box.setPointerCapture(drag.id); }catch(err){} }
+    const step=Math.max(40,Math.min(90,box.clientWidth/6));
+    while(drag.acc<=-step){ cfStep(1); drag.acc+=step; }
+    while(drag.acc>=step){ cfStep(-1); drag.acc-=step; }
+  });
+  const end=()=>{ drag=null; setTimeout(()=>{ cfDragged=false; },0); };
+  box.addEventListener('pointerup',end); box.addEventListener('pointercancel',end);
+  // 트랙패드·마우스 가로 스크롤
+  box.addEventListener('wheel',e=>{
+    if(Math.abs(e.deltaX)<=Math.abs(e.deltaY)) return;
+    e.preventDefault(); wheelX+=e.deltaX;
+    while(wheelX>60){ cfStep(1); wheelX-=60; }
+    while(wheelX<-60){ cfStep(-1); wheelX+=60; }
+  },{passive:false});
   return h('div',{class:'cflow-wrap', 'aria-hidden':'true'}, box, h('div',{class:'cf-cap'}, h('strong',{id:'cf-title'}), h('span',{id:'cf-sub'})));
 }
 function layoutCflow(){
