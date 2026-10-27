@@ -50,6 +50,7 @@ img{max-width:100%}
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 html{height:100%}
 body{word-break:keep-all;letter-spacing:-.01em;min-height:100%;display:flex;flex-direction:column;padding-inline:16px;padding-block:16px 88px;-webkit-tap-highlight-color:transparent;
   color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.6;
@@ -430,7 +431,7 @@ button.row:hover{background:var(--glass-hover)}
 </style>
 </head>
 <body>
-<header class="site-head"></header>
+<h1 class="sr-only">김세광 개발 포트폴리오</h1>
 
 <div id="player" class="view">
   <div id="stage" tabindex="0" aria-label="3D 뮤직 플레이어. 휠을 원형으로 드래그하거나 위아래 화살표로 이동, Enter로 선택, Esc로 뒤로, F로 화면 크게 보기"></div>
@@ -541,6 +542,7 @@ const BIRTH = {y:2006, m:7, d:4};
 function koreanAge({y,m,d}){ const t=new Date(); let a=t.getFullYear()-y; if(t.getMonth()+1<m || (t.getMonth()+1===m && t.getDate()<d)) a--; return a; }
 // copy:true 인 항목만 복사 버튼이 생겨요
 const contacts = [
+  {label:'이름', value:'김세광', short:'김세광', icon:'id'},
   {label:'Email', value:'segwankim77@gmail.com', short:'segwankim77@gmail.com', icon:'mail', copy:true},
   {label:'GitHub', value:'https://github.com/segwang77', short:'segwang77', icon:'github', link:true},
   {label:'생년월일', value:'2006.07.04', short:'2006.07.04', icon:'cake'},
@@ -768,6 +770,7 @@ const FOLDERS=[
 const ICONS={
   folder:'<svg class="ico folder" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5C3 5.7 3.7 5 4.5 5h4.4l2 2h8.6c.8 0 1.5.7 1.5 1.5v9c0 .8-.7 1.5-1.5 1.5h-15C3.7 19 3 18.3 3 17.5z"/></svg>',
   doc:'<svg class="ico line" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4M9.5 12h6M9.5 15.5h6"/></svg>',
+  id:'<svg class="ico line" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6.3 15.6c.6-1.3 1.6-2 2.7-2s2.1.7 2.7 2M14 10h3.5M14 13.2h3.5"/></svg>',
   cake:'<svg class="ico line" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M5 20v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7M5 15c1.5 1 3 1 4.5 0s3-1 4.5 0 3 1 4.5 0M12 11V8"/><path d="M12 4.5c.8.8.8 1.7 0 2.2-.8-.5-.8-1.4 0-2.2z"/></svg>',
   user:'<svg class="ico line" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg>',
   school:'<svg class="ico line" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5V16c1.5 1.5 3.5 2.2 5.5 2.2s4-.7 5.5-2.2v-4.5M21.5 9.5V15"/></svg>',
