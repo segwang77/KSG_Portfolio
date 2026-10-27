@@ -6,6 +6,7 @@
 <meta name="description" content="3D 클릭 휠 플레이어로 프로젝트를 탐색하는 KSG 개발 포트폴리오">
 <meta property="og:title" content="김세광 개발 포트폴리오">
 <meta property="og:description" content="3D 클릭 휠 플레이어로 프로젝트를 탐색하는 KSG 개발 포트폴리오">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
 /* 기본 리셋 (휴대폰 노치·홈 바 영역 여백 포함) */
 :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -18,7 +19,7 @@ img{max-width:100%}
 <link rel="apple-touch-icon" href="ksg_logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: 플레이어 뷰 = 화면 전체에 3D 기기 하나. 리스트 뷰 = 탐색기(사이드바 | 파일 목록 | 미리보기) */
 :root{
@@ -29,8 +30,8 @@ img{max-width:100%}
   /* 기기 화면(LCD)은 실물처럼 테마와 무관하게 한 가지 모습 */
   --lcd-bg:#FFFFFF; --lcd-fg:#15181D; --lcd-muted:#59616C; --lcd-line:#E2E5E9; --lcd-on:#FFFFFF;
   --lcd-sel1:#64A8F5; --lcd-sel2:#2361D1; --lcd-head1:#FBFBFC; --lcd-head2:#D3D8DE; --lcd-edge:#8D95A0; --lcd-lang:#E5EEFC; --lcd-hl1:#4A4D55; --lcd-hl2:#121317;
-  --display:"Familjen Grotesk","IBM Plex Sans KR",system-ui,sans-serif;
-  --body:"IBM Plex Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --display:"Familjen Grotesk","Pretendard Variable","Pretendard","Noto Sans KR",system-ui,sans-serif;
+  --body:"Pretendard Variable","Pretendard","Noto Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){
@@ -50,7 +51,7 @@ img{max-width:100%}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{height:100%}
-body{min-height:100%;display:flex;flex-direction:column;padding-inline:16px;padding-block:16px 88px;-webkit-tap-highlight-color:transparent;
+body{word-break:keep-all;letter-spacing:-.01em;min-height:100%;display:flex;flex-direction:column;padding-inline:16px;padding-block:16px 88px;-webkit-tap-highlight-color:transparent;
   color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.6;
   background:radial-gradient(120% 90% at 50% 42%,var(--stage-hi),var(--stage) 72%) var(--stage)}
 body.v-list{background:var(--bg)}
@@ -334,6 +335,18 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
   .dock-ind{top:5px;bottom:5px;border-radius:17px}
 }
 @media (max-width:340px){ .dock button.icon-only{flex-basis:42px} .dock button{font-size:10.5px} }
+/* 크게 보기 About: 한 화면에 읽히도록 작게 */
+.lcd-about{gap:14px}
+.lcd-about h2{font-size:clamp(24px,3vw,32px);line-height:1.25;letter-spacing:-.02em}
+#lcd .lcd-about p{font-size:16px;line-height:1.85;max-width:60ch;color:#2D333C}
+#lcd .lcd-about .meta dd{font-size:15px}
+/* 크게 보기 개인 프로젝트: 좌(Cover Flow) · 우(목록) */
+.lcd-wrap.wide{max-width:1180px}
+.lcd-split{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:28px;align-items:start}
+.lcd-split .cflow-wrap{margin:0;position:sticky;top:0}
+.lcd-split .cflow{--cw:210px;--g1:158px;--g2:52px}
+.lcd-split .lcd-list{max-height:calc(var(--cw,210px) + 140px);overflow:auto}
+@media (max-width:860px){ .lcd-split{grid-template-columns:minmax(0,1fr)} .lcd-split .cflow-wrap{position:static} .lcd-split .lcd-list{max-height:none} }
 @media (prefers-reduced-motion:reduce){ .view,#lcd,.dock-ind{transition:none} .eq i{animation:none;height:70%} }
 
 /* =========================================================
@@ -1006,7 +1019,10 @@ function renderLcd(focus){
   lcdTitleUpdate();
   lcdBack.style.visibility = stack.length>1 ? 'visible' : 'hidden';
   const wrap=h('div',{class:'lcd-wrap'});
-  if(list){ if(isCF(s)) wrap.append(lcdCoverFlow(list)); wrap.append(lcdList(list,s)); }
+  if(list){
+    if(isCF(s)){ wrap.classList.add('wide'); wrap.append(h('div',{class:'lcd-split'}, lcdCoverFlow(list), lcdList(list,s))); }
+    else wrap.append(lcdList(list,s));
+  }
   else if(s.id==='now') wrap.append(lcdNow());
   else if(s.id==='brick') wrap.append(h('div',{class:'lcd-doc'}, h('div',{class:'eyebrow'},'Extras'), h('h2',null,'Brick'), brickCanvas(),
       h('p',{class:'brick-help'},'마우스나 손가락을 좌우로 움직여 막대를 옮기고, 화면을 눌러 시작해요. 키보드 ← → 이동, Space 시작·일시정지.')));
@@ -1121,7 +1137,7 @@ function lcdNow(){
       h('div',{class:'lcd-links'}, projLinks(p))));
 }
 function lcdAbout(){
-  return h('div',{class:'lcd-doc'},
+  return h('div',{class:'lcd-doc lcd-about'},
     h('div',{class:'eyebrow'},'About'), h('h2',null,aboutListTitle),
     aboutListText.map(t=>h('p',null,t)),
     h('dl',{class:'meta'}, aboutMeta.map(([k,v])=>h('div',null,h('dt',null,k),h('dd',null,v)))));
@@ -1279,10 +1295,10 @@ const engTex=new T.CanvasTexture(engC); engTex.encoding=T.sRGBEncoding; engTex.a
 function drawEngrave(){
   const x=engC.getContext('2d'); x.clearRect(0,0,512,900); x.textAlign='center'; x.textBaseline='middle';
   const cut=(t,y,font)=>{ x.font=font; x.fillStyle='rgba(255,255,255,.6)'; x.fillText(t,256,y+2); x.fillStyle='rgba(38,42,50,.78)'; x.fillText(t,256,y); };
-  cut('KSG',290,'700 128px "Familjen Grotesk", "IBM Plex Sans KR", sans-serif');
-  cut('김세광 · Developer Portfolio',410,'600 33px "IBM Plex Sans KR", sans-serif');
-  cut('Designed and built by 김세광',752,'500 19px "IBM Plex Sans KR", sans-serif');
-  cut('Three.js · WebGL · Canvas · 2026',784,'500 19px "IBM Plex Sans KR", sans-serif');
+  cut('KSG',290,'700 128px "Familjen Grotesk", "Pretendard Variable","Pretendard","Noto Sans KR", sans-serif');
+  cut('김세광 · Developer Portfolio',410,'600 33px "Pretendard Variable","Pretendard","Noto Sans KR", sans-serif');
+  cut('Designed and built by 김세광',752,'500 19px "Pretendard Variable","Pretendard","Noto Sans KR", sans-serif');
+  cut('Three.js · WebGL · Canvas · 2026',784,'500 19px "Pretendard Variable","Pretendard","Noto Sans KR", sans-serif');
   engTex.needsUpdate=true;
 }
 drawEngrave();
@@ -1309,7 +1325,7 @@ function drawWheel(base,label){
   c.fillStyle=base; c.fillRect(0,0,s,s);
   const gr=c.createRadialGradient(s/2,s*0.3,10,s/2,s/2,s/2); gr.addColorStop(0,'rgba(255,255,255,.10)'); gr.addColorStop(1,'rgba(0,0,0,.06)');
   c.fillStyle=gr; c.fillRect(0,0,s,s);
-  c.fillStyle=label; c.font='700 40px "IBM Plex Sans","IBM Plex Sans KR",system-ui,sans-serif';
+  c.fillStyle=label; c.font='700 40px "Pretendard Variable","Pretendard","Noto Sans KR",system-ui,sans-serif';
   c.textAlign='center'; c.textBaseline='middle'; c.fillText('MENU',s/2,64);
   const tri=(x,y,dir,hh)=>{ c.beginPath(); c.moveTo(x,y-hh/2); c.lineTo(x+dir*hh*0.85,y); c.lineTo(x,y+hh/2); c.closePath(); c.fill(); };
   tri(424,256,1,28); tri(444,256,1,28); c.fillRect(468,242,5,28);
@@ -1336,7 +1352,7 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyTheme)
 new MutationObserver(applyTheme).observe(document.documentElement,{attributes:true, attributeFilter:['data-theme']});
 
 /* ---------- screen drawing ---------- */
-const FONT='"IBM Plex Sans KR","IBM Plex Sans",system-ui,sans-serif', MONO='"IBM Plex Mono",ui-monospace,monospace';
+const FONT='"Pretendard Variable","Pretendard","Noto Sans KR",system-ui,sans-serif', MONO='"IBM Plex Mono",ui-monospace,monospace';
 function rr(x,y,w,hh,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+hh,r); g.arcTo(x+w,y+hh,x,y+hh,r); g.arcTo(x,y+hh,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
 function fit(t,max){ if(g.measureText(t).width<=max) return t; let s=t; while(s.length>1 && g.measureText(s+'…').width>max) s=s.slice(0,-1); return s+'…'; }
 function wrap(text,max,lines){
@@ -1622,8 +1638,8 @@ function drawScreen(){
   screenTex.needsUpdate=true; dirty=false;
 }
 if(document.fonts){ Promise.all([
-  document.fonts.load('600 26px "IBM Plex Sans KR"','가나다'), document.fonts.load('500 20px "IBM Plex Mono"'),
-  document.fonts.load('700 40px "Familjen Grotesk"'), document.fonts.load('700 40px "IBM Plex Sans KR"','MENU')
+  document.fonts.load('600 26px "Pretendard Variable"','가나다'), document.fonts.load('600 26px "Noto Sans KR"','가나다'), document.fonts.load('500 20px "IBM Plex Mono"'),
+  document.fonts.load('700 40px "Familjen Grotesk"'), document.fonts.load('700 40px "Noto Sans KR"','MENU')
  ]).then(()=>{ drawEngrave(); for(const k in artCache) delete artCache[k]; for(const k in artURLs) delete artURLs[k]; dirty=true; applyTheme(); }).catch(()=>{}); }
 
 /* ---------- input ---------- */
