@@ -28,7 +28,7 @@ img{max-width:100%}
   --dev-front:#F4F4F2; --dev-wheel:#E1E3E6; --dev-label:#8F96A0;
   /* 기기 화면(LCD)은 실물처럼 테마와 무관하게 한 가지 모습 */
   --lcd-bg:#FFFFFF; --lcd-fg:#15181D; --lcd-muted:#59616C; --lcd-line:#E2E5E9; --lcd-on:#FFFFFF;
-  --lcd-sel1:#64A8F5; --lcd-sel2:#2361D1; --lcd-head1:#FBFBFC; --lcd-head2:#D3D8DE; --lcd-edge:#8D95A0; --lcd-lang:#E5EEFC;
+  --lcd-sel1:#64A8F5; --lcd-sel2:#2361D1; --lcd-head1:#FBFBFC; --lcd-head2:#D3D8DE; --lcd-edge:#8D95A0; --lcd-lang:#E5EEFC; --lcd-hl1:#4A4D55; --lcd-hl2:#121317;
   --display:"Familjen Grotesk","IBM Plex Sans KR",system-ui,sans-serif;
   --body:"IBM Plex Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
@@ -236,7 +236,7 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .lcd-list{display:flex;flex-direction:column}
 .lcd-row{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:16px;min-height:68px;padding:10px 18px;border-radius:10px;cursor:pointer;
   border-bottom:1px solid var(--lcd-line)}
-.lcd-row.on{background:linear-gradient(var(--lcd-sel1),var(--lcd-sel2));color:var(--lcd-on);border-bottom-color:transparent}
+.lcd-row.on{background:linear-gradient(var(--lcd-hl1),var(--lcd-hl2));color:var(--lcd-on);border-bottom-color:transparent}
 .lcd-row:focus-visible{outline:2px solid var(--lcd-sel2);outline-offset:2px}
 .lcd-row .t{display:flex;flex-direction:column;min-width:0;flex:1}
 .lcd-row .l{font-size:20px;font-weight:600;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1374,7 +1374,7 @@ function drawList(list,s){
   for(let r=0;r<ROWS;r++){
     const i=s.top+r; if(i>=list.length) break;
     const it=list[i], y=HEAD+r*ROWH, on=i===s.sel, cy=y+ROWH/2+1;
-    if(on){ const gr=g.createLinearGradient(0,y,0,y+ROWH); gr.addColorStop(0,'#64A8F5'); gr.addColorStop(1,'#2361D1'); g.fillStyle=gr; g.fillRect(0,y,SW-sw,ROWH); }
+    if(on){ const gr=g.createLinearGradient(0,y,0,y+ROWH); gr.addColorStop(0,'#4A4D55'); gr.addColorStop(1,'#121317'); g.fillStyle=gr; g.fillRect(0,y,SW-sw,ROWH); }
     let rw=0; const rx=SW-sw-(it.go?50:22);
     if(it.right){ g.font=`500 25px ${/[^\u0000-\u007F]/.test(it.right)?FONT:MONO}`; rw=g.measureText(it.right).width+20; g.textAlign='right'; g.fillStyle=on?'rgba(255,255,255,.9)':'#555D69'; g.fillText(it.right,rx,cy); }
     g.font=`600 32px ${FONT}`; g.textAlign='left'; g.fillStyle=on?'#FFFFFF':'#15181D';
