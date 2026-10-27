@@ -347,7 +347,7 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
   --glass-shadow:0 22px 50px -26px rgba(22,32,64,.38), 0 2px 8px -3px rgba(22,32,64,.12);
   --sheen:linear-gradient(140deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 70%, rgba(255,255,255,.18) 100%);
   --pill-bg:rgba(255,255,255,.92); --pill-fg:#16191E;
-  --aurora-1:#7FA8FF; --aurora-2:#C8F26E; --aurora-3:#FF9EC6; --aurora-4:#FFC97A; --aurora-op:.55;
+ 
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -357,7 +357,7 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
     --glass-shadow:0 26px 60px -26px rgba(0,0,0,.75), 0 2px 8px -3px rgba(0,0,0,.4);
     --sheen:linear-gradient(140deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0) 72%, rgba(255,255,255,.05) 100%);
     --pill-bg:rgba(255,255,255,.16); --pill-fg:#FFFFFF;
-    --aurora-1:#2D5BFF; --aurora-2:#5E9A10; --aurora-3:#B02A68; --aurora-4:#B8700F; --aurora-op:.34;
+   
   }
 }
 :root[data-theme="dark"]{
@@ -367,17 +367,9 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
   --glass-shadow:0 26px 60px -26px rgba(0,0,0,.75), 0 2px 8px -3px rgba(0,0,0,.4);
   --sheen:linear-gradient(140deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0) 72%, rgba(255,255,255,.05) 100%);
   --pill-bg:rgba(255,255,255,.16); --pill-fg:#FFFFFF;
-  --aurora-1:#2D5BFF; --aurora-2:#5E9A10; --aurora-3:#B02A68; --aurora-4:#B8700F; --aurora-op:.34;
+ 
 }
 
-/* 배경 빛 번짐 */
-.aurora{position:fixed;inset:-12vmax;z-index:-1;pointer-events:none;overflow:hidden;filter:blur(80px) saturate(1.15);opacity:var(--aurora-op)}
-.aurora i{position:absolute;width:46vmax;height:46vmax;border-radius:50%;animation:aurora-drift 32s ease-in-out infinite alternate}
-.aurora i:nth-child(1){background:var(--aurora-1);left:4%;top:2%}
-.aurora i:nth-child(2){background:var(--aurora-2);right:2%;top:18%;animation-duration:38s;animation-delay:-9s}
-.aurora i:nth-child(3){background:var(--aurora-3);left:22%;bottom:-6%;animation-duration:44s;animation-delay:-17s}
-.aurora i:nth-child(4){background:var(--aurora-4);right:18%;bottom:6%;width:34vmax;height:34vmax;animation-duration:36s;animation-delay:-4s}
-@keyframes aurora-drift{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(7vmax,-5vmax,0) scale(1.12)}100%{transform:translate3d(-5vmax,6vmax,0) scale(.94)}}
 
 /* 공통 유리 질감 */
 .site-head h1,.dock,.toolbar,.side,.main,.preview,.howto-toggle,.mini,.chip,.side-i{
@@ -418,15 +410,13 @@ button.row:hover{background:var(--glass-hover)}
   .preview.inline{background:var(--glass-hover);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;border:0;border-radius:0}
 }
 @media (max-width:600px){ .dock{border-radius:24px} .dock-ind{border-radius:18px} }
-@media (prefers-reduced-motion:reduce){ .aurora i{animation:none} }
+@media (prefers-reduced-motion:reduce){ }
 @media (prefers-reduced-transparency:reduce){
   .site-head h1,.dock,.toolbar,.side,.main,.preview{background-color:var(--surface);-webkit-backdrop-filter:none;backdrop-filter:none}
-  .aurora{display:none}
 }
 </style>
 </head>
 <body>
-<div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 <header class="site-head"><h1>김세광 개발 포트폴리오</h1></header>
 
 <div id="player" class="view">
