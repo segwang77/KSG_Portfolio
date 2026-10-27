@@ -335,9 +335,98 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 }
 @media (max-width:340px){ .dock button.icon-only{flex-basis:42px} .dock button{font-size:10.5px} }
 @media (prefers-reduced-motion:reduce){ .view,#lcd,.dock-ind{transition:none} .eq i{animation:none;height:70%} }
+
+/* =========================================================
+   Liquid Glass — 배경에 은은한 빛 번짐(오로라)을 깔고,
+   패널·하단 바·버튼을 반투명 유리 + 윗면 반사광으로
+   ========================================================= */
+:root{
+  --glass-bg:rgba(255,255,255,.50); --glass-bg-strong:rgba(255,255,255,.72); --glass-hover:rgba(255,255,255,.55);
+  --glass-line:rgba(255,255,255,.80); --glass-edge:rgba(24,30,44,.08); --glass-sel:rgba(44,103,216,.13);
+  --glass-hi:inset 0 1px 0 rgba(255,255,255,.95), inset 0 -1px 0 rgba(255,255,255,.25);
+  --glass-shadow:0 22px 50px -26px rgba(22,32,64,.38), 0 2px 8px -3px rgba(22,32,64,.12);
+  --sheen:linear-gradient(140deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 70%, rgba(255,255,255,.18) 100%);
+  --pill-bg:rgba(255,255,255,.92); --pill-fg:#16191E;
+  --aurora-1:#7FA8FF; --aurora-2:#C8F26E; --aurora-3:#FF9EC6; --aurora-4:#FFC97A; --aurora-op:.55;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --glass-bg:rgba(30,34,42,.46); --glass-bg-strong:rgba(26,29,36,.70); --glass-hover:rgba(255,255,255,.06);
+    --glass-line:rgba(255,255,255,.14); --glass-edge:rgba(255,255,255,.06); --glass-sel:rgba(122,162,255,.20);
+    --glass-hi:inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(255,255,255,.03);
+    --glass-shadow:0 26px 60px -26px rgba(0,0,0,.75), 0 2px 8px -3px rgba(0,0,0,.4);
+    --sheen:linear-gradient(140deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0) 72%, rgba(255,255,255,.05) 100%);
+    --pill-bg:rgba(255,255,255,.16); --pill-fg:#FFFFFF;
+    --aurora-1:#2D5BFF; --aurora-2:#5E9A10; --aurora-3:#B02A68; --aurora-4:#B8700F; --aurora-op:.34;
+  }
+}
+:root[data-theme="dark"]{
+  --glass-bg:rgba(30,34,42,.46); --glass-bg-strong:rgba(26,29,36,.70); --glass-hover:rgba(255,255,255,.06);
+  --glass-line:rgba(255,255,255,.14); --glass-edge:rgba(255,255,255,.06); --glass-sel:rgba(122,162,255,.20);
+  --glass-hi:inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(255,255,255,.03);
+  --glass-shadow:0 26px 60px -26px rgba(0,0,0,.75), 0 2px 8px -3px rgba(0,0,0,.4);
+  --sheen:linear-gradient(140deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0) 72%, rgba(255,255,255,.05) 100%);
+  --pill-bg:rgba(255,255,255,.16); --pill-fg:#FFFFFF;
+  --aurora-1:#2D5BFF; --aurora-2:#5E9A10; --aurora-3:#B02A68; --aurora-4:#B8700F; --aurora-op:.34;
+}
+
+/* 배경 빛 번짐 */
+.aurora{position:fixed;inset:-12vmax;z-index:-1;pointer-events:none;overflow:hidden;filter:blur(80px) saturate(1.15);opacity:var(--aurora-op)}
+.aurora i{position:absolute;width:46vmax;height:46vmax;border-radius:50%;animation:aurora-drift 32s ease-in-out infinite alternate}
+.aurora i:nth-child(1){background:var(--aurora-1);left:4%;top:2%}
+.aurora i:nth-child(2){background:var(--aurora-2);right:2%;top:18%;animation-duration:38s;animation-delay:-9s}
+.aurora i:nth-child(3){background:var(--aurora-3);left:22%;bottom:-6%;animation-duration:44s;animation-delay:-17s}
+.aurora i:nth-child(4){background:var(--aurora-4);right:18%;bottom:6%;width:34vmax;height:34vmax;animation-duration:36s;animation-delay:-4s}
+@keyframes aurora-drift{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(7vmax,-5vmax,0) scale(1.12)}100%{transform:translate3d(-5vmax,6vmax,0) scale(.94)}}
+
+/* 공통 유리 질감 */
+.site-head h1,.dock,.toolbar,.side,.main,.preview,.howto-toggle,.mini,.chip,.side-i{
+  background-color:var(--glass-bg); background-image:var(--sheen);
+  -webkit-backdrop-filter:blur(22px) saturate(1.8); backdrop-filter:blur(22px) saturate(1.8);
+  border:1px solid var(--glass-line); box-shadow:var(--glass-hi), var(--glass-shadow);
+}
+.main,.preview{background-color:var(--glass-bg-strong);border-radius:20px}
+.toolbar{border-radius:18px}
+.side{padding:8px;border-radius:20px;top:16px}
+.side-i{background:transparent;border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;border-radius:12px}
+.side-i:hover{background:var(--glass-hover)}
+.side-i[aria-current="true"]{background-color:var(--pill-bg);background-image:var(--sheen);border-color:var(--glass-line);box-shadow:var(--glass-hi), 0 6px 16px -10px rgba(22,32,64,.45);color:var(--pill-fg)}
+.site-head h1{padding:8px 20px;border-radius:999px;font-size:19px;letter-spacing:-.01em}
+.thead{border-bottom-color:var(--glass-edge)}
+.row{border-bottom-color:var(--glass-edge)}
+button.row:hover{background:var(--glass-hover)}
+.row[aria-selected="true"]{background:var(--glass-sel)}
+.status{background:transparent;border-top:1px solid var(--glass-edge)}
+.icon-btn:hover:not(:disabled){background:var(--glass-hover)}
+.crumbs button:hover{background:var(--glass-hover)}
+.mini,.chip{box-shadow:var(--glass-hi);-webkit-backdrop-filter:none;backdrop-filter:none}
+.chip.lang{background-color:var(--glass-sel);border-color:transparent}
+.primary{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 78%,#fff),var(--accent));box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 10px 22px -10px var(--accent)}
+.thumb,.art{box-shadow:inset 0 0 0 1px rgba(255,255,255,.22),0 10px 24px -14px rgba(0,0,0,.5)}
+.howto-toggle{box-shadow:var(--glass-hi)}
+.howto-toggle:hover{background-color:var(--glass-hover)}
+
+/* 하단 바: 유리 위에 더 밝은 유리 알약이 미끄러짐 */
+.dock{border-radius:999px}
+.dock-ind{background-color:var(--pill-bg);background-image:var(--sheen);border:1px solid var(--glass-line);box-shadow:var(--glass-hi),0 8px 18px -10px rgba(22,32,64,.5)}
+.dock button[aria-current="true"]{color:var(--pill-fg)}
+.cf input,.cf textarea{background:var(--glass-bg);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+
+@media (max-width:720px){
+  .side{padding:0;background:none;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+  .side-i{background-color:var(--glass-bg);background-image:var(--sheen);border:1px solid var(--glass-line);box-shadow:var(--glass-hi);border-radius:999px;-webkit-backdrop-filter:blur(16px) saturate(1.6);backdrop-filter:blur(16px) saturate(1.6)}
+  .preview.inline{background:var(--glass-hover);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;border:0;border-radius:0}
+}
+@media (max-width:600px){ .dock{border-radius:24px} .dock-ind{border-radius:18px} }
+@media (prefers-reduced-motion:reduce){ .aurora i{animation:none} }
+@media (prefers-reduced-transparency:reduce){
+  .site-head h1,.dock,.toolbar,.side,.main,.preview{background-color:var(--surface);-webkit-backdrop-filter:none;backdrop-filter:none}
+  .aurora{display:none}
+}
 </style>
 </head>
 <body>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 <header class="site-head"><h1>김세광 개발 포트폴리오</h1></header>
 
 <div id="player" class="view">
@@ -422,8 +511,8 @@ const projects = [
    desc:"지금 보고 있는 이 사이트. Three.js로 3D 휴대용 플레이어를 만들고, 기기 화면 UI는 캔버스에 직접 그려 텍스처로 입혔어요. 클릭 휠 조작, 화면 크게 보기, 탐색기 형태의 리스트 보기, 라이트·다크 테마, 모바일 화면을 지원해요."},
   {title:"저상버스 알리미", group:"개인 프로젝트", kind:"웹 앱 (PWA)", year:2026, days:1, period:"1일", url:"https://lowbus-sgwng.web.app/",
    lang:["TypeScript","JavaScript"],
-   stack:["React 19","Vite","Tailwind CSS 4","TanStack Query","React Router","Motion","MapLibre","PWA","Firebase Functions","Cloud Firestore","Firebase Hosting","TAGO 공공데이터 API","Vitest","Playwright"], hue:72,
-   desc:"휠체어 이용자를 위한 전국 저상버스 도착 알리미. 모든 버스를 섞어 보여 주는 일반 버스 앱과 달리, 내가 탈 수 있는 저상버스만 골라 언제 오는지 크게 보여 주고 미리 알려 줘요. 국토교통부 TAGO 공공데이터를 Firebase Functions로 중계해 서비스키를 서버에만 두고, 음성 안내와 고대비·큰 글씨 모드, PWA 설치를 지원해요. Vitest와 Playwright로 테스트하고 axe로 WCAG 2.2 AA 접근성을 점검했어요."}
+   stack:["React 19","Vite","Tailwind CSS 4","TanStack Query","React Router","Motion","MapLibre","PWA","Firebase Functions","Cloud Firestore","Firebase Hosting","TAGO 공공데이터 API"], hue:72,
+   desc:"휠체어 이용자를 위한 전국 저상버스 도착 알리미. 모든 버스를 섞어 보여 주는 일반 버스 앱과 달리, 내가 탈 수 있는 저상버스만 골라 언제 오는지 크게 보여 주고 미리 알려 줘요. 국토교통부 TAGO 공공데이터를 Firebase Functions로 중계해 서비스키를 서버에만 두고, 음성 안내와 고대비·큰 글씨 모드, PWA 설치를 지원해요."}
 ];
 const tagsOf = p => [...p.lang, ...p.stack];
 const groups = [...new Set(projects.map(p=>p.group))].map(name=>({name, count:projects.filter(p=>p.group===name).length}));
