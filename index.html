@@ -92,8 +92,7 @@ a{color:inherit}
   display:flex;gap:2px;padding:5px;border-radius:999px;border:1px solid var(--line);
   background:color-mix(in srgb,var(--surface) 80%,transparent);backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);
   box-shadow:0 10px 30px -12px rgba(0,0,0,.28)}
-.dock-ind{position:absolute;top:5px;bottom:5px;left:0;width:0;border-radius:999px;background:var(--fg);
-  transition:transform .38s cubic-bezier(.2,.7,.2,1),width .38s cubic-bezier(.2,.7,.2,1)}
+.dock-ind{position:absolute;top:5px;bottom:5px;left:0;width:0;border-radius:999px;background:var(--fg);transform-origin:center}
 .dock button{all:unset;box-sizing:border-box;position:relative;z-index:1;display:flex;align-items:center;gap:7px;height:40px;padding:0 16px;
   border-radius:999px;font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;white-space:nowrap;transition:color .25s}
 .dock button:hover{color:var(--fg)}
@@ -360,7 +359,7 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
   --glass-hi:inset 0 1px 0 rgba(255,255,255,.95), inset 0 -1px 0 rgba(255,255,255,.25);
   --glass-shadow:0 22px 50px -26px rgba(22,32,64,.38), 0 2px 8px -3px rgba(22,32,64,.12);
   --sheen:linear-gradient(140deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 70%, rgba(255,255,255,.18) 100%);
-  --pill-bg:rgba(255,255,255,.92); --pill-fg:#16191E;
+  --pill-bg:rgba(255,255,255,.92); --pill-fg:#16191E; --spec:rgba(255,255,255,.55);
  
 }
 @media (prefers-color-scheme: dark){
@@ -370,7 +369,7 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
     --glass-hi:inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(255,255,255,.03);
     --glass-shadow:0 26px 60px -26px rgba(0,0,0,.75), 0 2px 8px -3px rgba(0,0,0,.4);
     --sheen:linear-gradient(140deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0) 72%, rgba(255,255,255,.05) 100%);
-    --pill-bg:rgba(255,255,255,.16); --pill-fg:#FFFFFF;
+    --pill-bg:rgba(255,255,255,.16); --pill-fg:#FFFFFF; --spec:rgba(255,255,255,.08);
    
   }
 }
@@ -380,7 +379,7 @@ button.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
   --glass-hi:inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(255,255,255,.03);
   --glass-shadow:0 26px 60px -26px rgba(0,0,0,.75), 0 2px 8px -3px rgba(0,0,0,.4);
   --sheen:linear-gradient(140deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0) 72%, rgba(255,255,255,.05) 100%);
-  --pill-bg:rgba(255,255,255,.16); --pill-fg:#FFFFFF;
+  --pill-bg:rgba(255,255,255,.16); --pill-fg:#FFFFFF; --spec:rgba(255,255,255,.08);
  
 }
 
@@ -411,6 +410,36 @@ button.row:hover{background:var(--glass-hover)}
 .thumb,.art{box-shadow:inset 0 0 0 1px rgba(255,255,255,.22),0 10px 24px -14px rgba(0,0,0,.5)}
 .howto-toggle{box-shadow:var(--glass-hi)}
 .howto-toggle:hover{background-color:var(--glass-hover)}
+
+/* ---- Liquid Glass 모션 ---- */
+/* 1) 손끝 반사광: 마우스 위치를 따라 유리 표면에 빛이 맺힘 */
+.dock,.toolbar,.side,.main,.preview{background-image:radial-gradient(280px circle at var(--mx,-600px) var(--my,-600px),var(--spec),transparent 62%),var(--sheen)}
+/* 2) 누르면 살짝 눌렸다가 탄력 있게 복원 (interactive squish) */
+:is(.dock button,.side-i,.mini,.primary,.icon-btn,.howto-toggle,.crumbs button,.lcd-pill,.lcd-ctl,.cf-send,.lcd-ib){transition:color .25s,background-color .25s,transform .55s cubic-bezier(.34,1.56,.64,1)}
+:is(.dock button,.side-i,.mini,.primary,.icon-btn,.howto-toggle,.crumbs button,.lcd-pill,.lcd-ctl,.cf-send,.lcd-ib):active{transform:scale(.93);transition-duration:.12s}
+:is(button.row,.lcd-row){transition:background-color .2s,transform .55s cubic-bezier(.34,1.56,.64,1)}
+:is(button.row,.lcd-row):active{transform:scale(.985);transition-duration:.12s}
+/* 3) 목록 선택: 줄 사이를 액체처럼 늘어났다 모이며 이동하는 유리 하이라이트 */
+.rows{position:relative}
+.rows .row{position:relative;z-index:1}
+.row-ind{position:absolute;left:0;right:0;top:0;height:0;z-index:0;pointer-events:none;background:var(--glass-sel);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+.rows.has-ind .row[aria-selected="true"]{background:transparent}
+/* 4) 리스트 화면은 투명도로 사라지지 않고, 유리가 '맺히고/풀리며' 나타남 */
+#list.view.enter,#list.view.leave{opacity:1;transform:none}
+@keyframes glass-materialize{from{-webkit-backdrop-filter:blur(0px) saturate(1);backdrop-filter:blur(0px) saturate(1);background-color:transparent;border-color:transparent;box-shadow:none;transform:scale(.965)}}
+@keyframes glass-dematerialize{to{-webkit-backdrop-filter:blur(0px) saturate(1);backdrop-filter:blur(0px) saturate(1);background-color:transparent;border-color:transparent;box-shadow:none;transform:scale(.975)}}
+@keyframes glass-content-in{from{opacity:0;transform:translateY(6px)}}
+#list.materialize :is(.toolbar,.side,.main,.preview){animation:glass-materialize .62s cubic-bezier(.2,.8,.2,1) both}
+#list.materialize .side{animation-delay:.05s}
+#list.materialize .main{animation-delay:.1s}
+#list.materialize .preview{animation-delay:.15s}
+#list.materialize :is(.toolbar,.side,.main,.preview) > *{animation:glass-content-in .45s .14s cubic-bezier(.2,.8,.2,1) both}
+#list.dematerialize :is(.toolbar,.side,.main,.preview){animation:glass-dematerialize .26s ease-in both}
+#list.dematerialize :is(.toolbar,.side,.main,.preview) > *{opacity:0;transition:opacity .18s}
+@media (prefers-reduced-motion:reduce){
+  :is(.dock button,.side-i,.mini,.primary,.icon-btn,.howto-toggle,.crumbs button,.lcd-pill,.lcd-ctl,.cf-send,.lcd-ib,button.row,.lcd-row):active{transform:none}
+  #list.materialize *,#list.dematerialize *{animation:none!important}
+}
 
 /* 하단 바: 유리 위에 더 밝은 유리 알약이 미끄러짐 */
 .dock{border-radius:999px}
@@ -513,7 +542,7 @@ const projects = [
    lang:["JavaScript","HTML","CSS"],
    stack:["Three.js","WebGL","Canvas 2D"], hue:38,
    desc:"지금 보고 있는 이 사이트. Three.js로 3D 휴대용 플레이어를 만들고, 기기 화면 UI는 캔버스에 직접 그려 텍스처로 입혔어요. 클릭 휠 조작, 화면 크게 보기, 탐색기 형태의 리스트 보기, 라이트·다크 테마, 모바일 화면을 지원해요."},
-  {title:"저상버스 알리미", group:"개인 프로젝트", kind:"웹 앱 (PWA)", year:2026, period:"개발중", url:"https://lowbus-sgwng.web.app/",
+  {title:"저상버스 알리미", group:"개인 프로젝트", kind:"웹 앱 (PWA)", year:2026, days:1, period:"개발 중", url:"https://lowbus-sgwng.web.app/",
    lang:["TypeScript","JavaScript"],
    stack:["React 19","Vite","Tailwind CSS 4","TanStack Query","React Router","Motion","MapLibre","PWA","Firebase Functions","Cloud Firestore","Firebase Hosting","TAGO 공공데이터 API"], hue:72,
    desc:"휠체어 이용자를 위한 전국 저상버스 도착 알리미. 모든 버스를 섞어 보여 주는 일반 버스 앱과 달리, 내가 탈 수 있는 저상버스만 골라 언제 오는지 크게 보여 주고 미리 알려 줘요. 국토교통부 TAGO 공공데이터를 Firebase Functions로 중계해 서비스키를 서버에만 두고, 음성 안내와 고대비·큰 글씨 모드, PWA 설치를 지원해요."}
@@ -614,11 +643,11 @@ function select(){
   const s=topS(), list=items(s);
   if(!list){ if(s.id==='now'){ nowInfo=!nowInfo; dirty=true; } else if(s.id==='mail' && has3D){ openLcd(); } else if(s.id==='brick'){ brickAction(); } return; }
   const it=list[s.sel];
-  if(it.go){ stack.push({id:it.go, sel:0, top:0, arg:it.arg}); if(it.go==='brick') brickEnter(); }
-  else if(it.act) it.act();
+  if(it.go){ beginSlide(1); stack.push({id:it.go, sel:0, top:0, arg:it.arg}); if(it.go==='brick') brickEnter(); }
+  else if(it.act){ if(it.idx!=null) beginSlide(1); it.act(); }
   dirty=true;
 }
-function back(){ if(booting) return; if(stack.length>1){ click('press'); if(topS().id==='brick') brickLeave(); stack.pop(); nowInfo=false; dirty=true; } }
+function back(){ if(booting) return; if(stack.length>1){ click('press'); if(topS().id==='brick') brickLeave(); beginSlide(-1); stack.pop(); nowInfo=false; dirty=true; } }
 function togglePlay(){ if(topS().id==='brick') brickPause(); }
 function playTrack(i, open){
   const dir = i>current ? 1 : -1;
@@ -673,30 +702,53 @@ function click(kind){
 const playerEl=$('#player'), listEl=$('#list'), stage=$('#stage');
 let view='player', has3D=false;
 const dock=$('#dock'), dockInd=$('#dock-ind');
-function placeDock(){
+// 하단 바 알약: 옮겨 갈 때 두 칸을 잇듯 늘어났다가(유리가 두꺼워지듯 살짝 납작) 새 자리로 모임
+let dockPos=null;
+function placeDock(animate){
   const b=dock.querySelector('[aria-current="true"]'); if(!b || !b.offsetWidth) return;
-  dockInd.style.width=b.offsetWidth+'px'; dockInd.style.transform='translateX('+b.offsetLeft+'px)';
+  const to={x:b.offsetLeft, w:b.offsetWidth}, from=dockPos;
+  if(animate===true && from && !reduce && (from.x!==to.x || from.w!==to.w) && dockInd.animate){
+    const l=Math.min(from.x,to.x), r=Math.max(from.x+from.w,to.x+to.w);
+    dockInd.animate([
+      {transform:'translateX('+from.x+'px) scaleY(1)', width:from.w+'px'},
+      {transform:'translateX('+l+'px) scaleY(.9)', width:(r-l)+'px', offset:.42},
+      {transform:'translateX('+to.x+'px) scaleY(1)', width:to.w+'px'}
+    ],{duration:540, easing:'cubic-bezier(.2,.8,.2,1)'});
+  }
+  dockInd.style.width=to.w+'px'; dockInd.style.transform='translateX('+to.x+'px)'; dockPos=to;
 }
 function setView(v){
   if(v===view) return;
   view=v;
   dock.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-current', b.dataset.view===v?'true':'false'));
-  placeDock();
+  placeDock(true);
   const out = v==='list' ? playerEl : listEl, inn = v==='list' ? listEl : playerEl;
   if(v==='list'){ spinVel += 9; renderList(); } else { spinVel -= 7; }
   const swap=()=>{
-    out.hidden=true; out.classList.remove('leave');
+    out.hidden=true; out.classList.remove('leave','dematerialize');
     document.body.classList.toggle('v-list', v==='list');
     inn.classList.add('enter'); inn.hidden=false;
+    if(inn===listEl && !reduce){ listEl.classList.add('materialize'); setTimeout(()=>listEl.classList.remove('materialize'),950); requestAnimationFrame(()=>moveRowInd(false)); }
     requestAnimationFrame(()=>requestAnimationFrame(()=>inn.classList.remove('enter')));
     if(v==='list'){ const f=$('#main [aria-selected="true"], #main .row'); if(f) f.focus({preventScroll:true}); window.scrollTo(0,0); }
     else stage.focus({preventScroll:true});
   };
   if(reduce){ swap(); return; }
-  out.classList.add('leave');
+  out.classList.add(out===listEl ? 'dematerialize' : 'leave');
   setTimeout(swap, 260);
 }
 dock.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+let specRAF=0, specEv=null;
+document.addEventListener('pointermove',e=>{
+  if(reduce || e.pointerType!=='mouse') return;
+  specEv=e; if(specRAF) return;
+  specRAF=requestAnimationFrame(()=>{ specRAF=0;
+    document.querySelectorAll('.dock,.toolbar,.side,.main,.preview').forEach(el=>{
+      if(el.offsetParent===null && el!==dock) return;
+      const r=el.getBoundingClientRect(); el.style.setProperty('--mx',(specEv.clientX-r.left)+'px'); el.style.setProperty('--my',(specEv.clientY-r.top)+'px');
+    });
+  });
+},{passive:true});
 $('#dock-lcd').addEventListener('click',()=>{
   if(!has3D) return;
   if(view==='player') openLcd();
@@ -753,8 +805,8 @@ howtoBtn.addEventListener('click',()=>{
   howtoShown=!howtoShown; setHowto(howtoShown);
   try{ localStorage.setItem('ksg-howto', howtoShown?'shown':'hidden'); }catch(e){}
 });
-new ResizeObserver(placeDock).observe(dock);
-if(document.fonts) document.fonts.ready.then(placeDock);
+new ResizeObserver(()=>placeDock(false)).observe(dock);
+if(document.fonts) document.fonts.ready.then(()=>placeDock(false));
 placeDock();
 
 /* ---------- explorer ---------- */
@@ -928,6 +980,24 @@ function renderProjects(list){
     })),
     statusBar(list.length+'개 항목'));
 }
+function moveRowInd(animate){
+  const lb=mainEl.querySelector('.rows[role="listbox"]'); if(!lb) return;
+  let ind=lb.querySelector('.row-ind');
+  if(!ind){ ind=h('span',{class:'row-ind','aria-hidden':'true'}); lb.prepend(ind); lb.classList.add('has-ind'); }
+  const row=lb.querySelector('[role="option"][aria-selected="true"]');
+  if(!row || !row.offsetHeight){ ind.hidden=true; return; } ind.hidden=false;
+  const to={y:row.offsetTop, h:row.offsetHeight}, from=ind._pos;
+  if(animate && from && !reduce && from.y!==to.y && ind.animate){
+    const top=Math.min(from.y,to.y), bot=Math.max(from.y+from.h,to.y+to.h);
+    ind.animate([
+      {transform:'translateY('+from.y+'px)', height:from.h+'px'},
+      {transform:'translateY('+top+'px)', height:(bot-top)+'px', offset:.4},
+      {transform:'translateY('+to.y+'px)', height:to.h+'px'}
+    ],{duration:460, easing:'cubic-bezier(.2,.8,.2,1)'});
+  }
+  ind.style.transform='translateY('+to.y+'px)'; ind.style.height=to.h+'px'; ind._pos=to;
+}
+new ResizeObserver(()=>moveRowInd(false)).observe(mainEl);
 function selectProject(i){
   if(listSel===i && prevEl.dataset.i===String(i)) return;
   listSel=i;
@@ -965,6 +1035,7 @@ function renderPreview(scroll){
     h('div',{class:'actions'},
       projLinks(p)));
   placePreview(scroll);
+  moveRowInd(!!scroll);
 }
 function renderAbout(){
   mainEl.className='main';
@@ -1390,10 +1461,12 @@ function header(title){
 function drawList(list,s){
   g.fillStyle='#FFFFFF'; g.fillRect(0,HEAD,SW,SH-HEAD);
   const sw = list.length>ROWS ? 16 : 0;
+  const tA=HEAD+(s.sel-s.top)*ROWH; if(s.hlA==null){ s.hlA=tA; s.hlB=tA+ROWH; }
+  { const a=s.hlA, b=s.hlB, gr=g.createLinearGradient(0,a,0,b); gr.addColorStop(0,'#4A4D55'); gr.addColorStop(1,'#121317'); g.fillStyle=gr; g.fillRect(0,a,SW-sw,b-a); }
   for(let r=0;r<ROWS;r++){
     const i=s.top+r; if(i>=list.length) break;
-    const it=list[i], y=HEAD+r*ROWH, on=i===s.sel, cy=y+ROWH/2+1;
-    if(on){ const gr=g.createLinearGradient(0,y,0,y+ROWH); gr.addColorStop(0,'#4A4D55'); gr.addColorStop(1,'#121317'); g.fillStyle=gr; g.fillRect(0,y,SW-sw,ROWH); }
+    const it=list[i], y=HEAD+r*ROWH, cy=y+ROWH/2+1;
+    const on = Math.max(0, Math.min(y+ROWH,s.hlB)-Math.max(y,s.hlA)) > ROWH*0.5;
     let rw=0; const rx=SW-sw-(it.go?50:22);
     if(it.right){ g.font=`500 25px ${/[^\u0000-\u007F]/.test(it.right)?FONT:MONO}`; rw=g.measureText(it.right).width+20; g.textAlign='right'; g.fillStyle=on?'rgba(255,255,255,.9)':'#555D69'; g.fillText(it.right,rx,cy); }
     g.font=`600 32px ${FONT}`; g.textAlign='left'; g.fillStyle=on?'#FFFFFF':'#15181D';
@@ -1628,6 +1701,11 @@ function drawBoot(){
   if(f>0){ g.save(); rr(px,py,pw,10,5); g.clip(); g.fillStyle='#FFFFFF'; g.fillRect(px,py,pw*f,10); g.restore(); }
   g.globalAlpha=1;
 }
+// 화면 전환용: 직전 화면을 찍어 두고 새 화면과 엇갈려 밀어냄
+const snapC=document.createElement('canvas'); snapC.width=SW; snapC.height=SH;
+const slideC=document.createElement('canvas'); slideC.width=SW; slideC.height=SH; const slideX=slideC.getContext('2d');
+let slide=null;
+function beginSlide(dir){ if(reduce || booting || lcdOpen) return; snapC.getContext('2d').drawImage(sc,0,0); slide={dir, t:0}; dirty=true; }
 function drawScreen(){
   const s=topS();
   if(booting && bootT < BOOT_LEN-0.35){ drawBoot(); screenTex.needsUpdate=true; dirty=false; return; }
@@ -1637,6 +1715,13 @@ function drawScreen(){
   else if(list) drawList(list,s); else if(s.id==='now') drawNow(); else if(s.id==='mail') drawMail(); else if(s.id==='brick') drawBrick(); else drawAbout();
   const gl=g.createLinearGradient(0,0,SW*0.6,SH); gl.addColorStop(0,'rgba(255,255,255,.16)'); gl.addColorStop(0.45,'rgba(255,255,255,0)');
   g.fillStyle=gl; g.fillRect(0,0,SW,SH);
+  if(slide){
+    const e=1-Math.pow(1-Math.min(1,slide.t),3), d=slide.dir;
+    slideX.clearRect(0,0,SW,SH); slideX.drawImage(sc,0,0);
+    g.fillStyle='#FFFFFF'; g.fillRect(0,HEAD,SW,SH-HEAD);
+    g.drawImage(snapC,0,HEAD,SW,SH-HEAD, -d*e*SW,HEAD,SW,SH-HEAD);
+    g.drawImage(slideC,0,HEAD,SW,SH-HEAD, d*(1-e)*SW,HEAD,SW,SH-HEAD);
+  }
   if(booting){ g.fillStyle='rgba(0,0,0,'+Math.max(0,1-(bootT-(BOOT_LEN-0.35))/0.35).toFixed(3)+')'; g.fillRect(0,0,SW,SH); }
   screenTex.needsUpdate=true; dirty=false;
 }
@@ -1775,6 +1860,22 @@ function frame(now){
   if(!visible) return;
   clock+=dt;
   if(booting){ bootT+=dt; if(bootT>=BOOT_LEN) booting=false; dirty=true; }
+  if(slide){ slide.t+=dt/0.3; if(slide.t>=1) slide=null; dirty=true; }
+  { const hs=topS(), hl=items(hs);
+    if(hl && !isCF(hs)){
+      const tA=HEAD+(hs.sel-hs.top)*ROWH, tB=tA+ROWH;
+      if(hs.hlA==null){ hs.hlA=tA; hs.hlB=tB; dirty=true; }
+      else if(hs.hlA!==tA || hs.hlB!==tB){
+        if(reduce){ hs.hlA=tA; hs.hlB=tB; }
+        else {
+          const down=tA>hs.hlA, lead=1-Math.exp(-dt*26), trail=1-Math.exp(-dt*12);
+          hs.hlA+=(tA-hs.hlA)*(down?trail:lead); hs.hlB+=(tB-hs.hlB)*(down?lead:trail);
+          if(Math.abs(tA-hs.hlA)<0.4 && Math.abs(tB-hs.hlB)<0.4){ hs.hlA=tA; hs.hlB=tB; }
+        }
+        dirty=true;
+      }
+    }
+  }
   const ts=topS();
   if(isCF(ts)){
     if(ts.cfPos==null) ts.cfPos=ts.sel;
